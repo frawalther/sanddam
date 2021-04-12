@@ -24,6 +24,3 @@ execGRASS("r.carve", raster="dem_proj", vector="streams", output="dem_carved", w
 #ERROR!: Grass commands do not run
 #Error in if (get("SYS", envir = .GRASS_CACHE) == "WinNat" && nchar(WN_bat) ==  : 
 #missing value where TRUE/FALSE needed
-
-use_git_config(user.name = "frawalther", user.email = "waltherf@hu-berlin.de")
-#xyz
