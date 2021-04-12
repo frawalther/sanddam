@@ -1,0 +1,23 @@
+cell_size = 30           #Landsat resolution
+radius = 2000            #or <=400m - paper
+ncell = ceiling(radius  / cell_size)
+dmat = matrix(0, nrow = 2 * ncell + 1, ncol = 2 * ncell + 1)
+centre = ncell + 1
+for(i in 1:nrow(dmat)) {
+  for(j in 1:nrow(dmat)) {
+    dmat[i,j] = cell_size * sqrt((i - centre)^2 + (j - centre) ^ 2)
+  }
+}
+
+## add a small fraction of the cell size to avoid giving the centre too much weight
+## if we don't do this, the centre has infinite weight!
+
+## changing either the exponent or the fraction of the cell size will change the strength
+## for example, if the exponent is 1, it is quite linear, 2 it is quite strongly weighted
+## to the centre
+wt = 1/(dmat+cell_size/2)^2
+wt[dmat > radius] = 0 ## convert to a circular radius
+
+# normalize the weights
+wt = wt / sum(wt)
+
