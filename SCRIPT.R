@@ -1,5 +1,8 @@
-#Load in libraries
+#GITHUB
+# use_git_config(user.name = "frawalther", user.email = "waltherf@hu-berlin.de")
+# https://github.com/frawalther/sanddam.git
 
+#Load in libraries
 #remotes::install_github("mtalluto/rgrass7")
 library(rgrass7)
 library(raster)
@@ -9,7 +12,9 @@ library(rgeos)
 library(sf)
 library(watershed)
 
-options(gisBase = "C:/PROGRA~1//QGIS3~1.16/apps/grass/grass76")
+options(gisBase = "C:/PROGRA~1//QGIS3~1.16/apps/grass/grass78")
+#grass76 cannot be found
+#options(gisBase = "C:/PROGRA~1//QGIS3~1.16/apps/grass/grass76")
 
 #Digital Elevation Model 
 dem <- raster("~/01Master/MasterThesis/Pius/DEM/DEM_ext.tif", format="GTiff")
@@ -25,9 +30,6 @@ execGRASS("r.carve", raster="dem_proj", vector="streams", output="dem_carved", w
 #Error in if (get("SYS", envir = .GRASS_CACHE) == "WinNat" && nchar(WN_bat) ==  : 
 #missing value where TRUE/FALSE needed
 
-#help out: Loaded in preprocessed DEM from QGIS 
-dem_carved <- raster("~/01Master/MasterThesis/Pius/DEM/dem_carved.tif")
 
-kitui = delineate(dem_carved, threshold= 1e+05)
-plot(dem_carved, col=terrain.colors(20), axes= FALSE)
-plot(kitui@stream, col="blue", add=T, legend=F)
+
+
