@@ -24,3 +24,10 @@ execGRASS("r.carve", raster="dem_proj", vector="streams", output="dem_carved", w
 #ERROR!: Grass commands do not run
 #Error in if (get("SYS", envir = .GRASS_CACHE) == "WinNat" && nchar(WN_bat) ==  : 
 #missing value where TRUE/FALSE needed
+
+#help out: Loaded in preprocessed DEM from QGIS 
+dem_carved <- raster("~/01Master/MasterThesis/Pius/DEM/dem_carved.tif")
+
+kitui = delineate(dem_carved, threshold= 1e+05)
+plot(dem_carved, col=terrain.colors(20), axes= FALSE)
+plot(kitui@stream, col="blue", add=T, legend=F)
