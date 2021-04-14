@@ -2,14 +2,20 @@
 # use_git_config(user.name = "frawalther", user.email = "waltherf@hu-berlin.de")
 # https://github.com/frawalther/sanddam.git
 
+#
+remove.packages(c("sp", "sf", "rgdal", "rgrass7", "watershed"))
+install.packages(c("rgdal", "sp", "sf"))
+remotes::install_github("rsbivand/rgrass7", dependencies = TRUE)
+remotes::install_github("flee-group/watershed", ref="main", dependencies=TRUE)
+
 #Load in libraries
-#remotes::install_github("mtalluto/rgrass7")
 library(rgrass7)
 library(raster)
 library(dplyr)
 library(rgdal)
 library(rgeos)
 library(sf)
+#install.packages()
 library(watershed)
 
 options(gisBase = "C:/PROGRA~1//QGIS3~1.16/apps/grass/grass78")
