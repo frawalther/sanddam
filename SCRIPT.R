@@ -1,8 +1,3 @@
-#GITHUB
-# use_git_config(user.name = "frawalther", user.email = "waltherf@hu-berlin.de")
-# https://github.com/frawalther/sanddam.git
-
-#
 remove.packages(c("sp", "sf", "rgdal", "rgrass7", "watershed"))
 install.packages(c("rgdal", "sp", "sf"))
 remotes::install_github("rsbivand/rgrass7", dependencies = TRUE)
