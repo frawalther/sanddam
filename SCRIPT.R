@@ -36,38 +36,41 @@ kamp_Tr = reach_topology(kamp, kamp_Tp)
 #############################
 #Digital Elevation Model 
 dem <- raster("~/01Master/MasterThesis/Pius/DEM/DEM_ext.tif", format="GTiff")
-
 dem_proj <- projectRaster(dem, crs="+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", method='ngb') 
-#writeRaster(dem_proj, "~/01Master/MasterThesis/Pius/DEM/dem_proj.tif", format="GTiff", overwrite=T)
+
 # hand digitized streams
 streams <- readOGR(dsn="~/01Master/MasterThesis/Pius/DEM", layer="stream_dig")
+#Carve DEM by manual edited streams 
+watershed:::.start_grass(dem_proj, "dem_proj")
+writeVECT(streams, "streams", driver="ESRI Shapefile")
+execGRASS("r.carve", raster="dem_proj", vector="streams", output="dem_carved", width=30, depth=30)
+  #WARNING: trying to divide by zero...no unique solution for
+  #system...skipping...
+dem_carved = raster(readRAST("dem_carved"))
+  # Warning message:
+  #   In showSRID(uprojargs, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
+  #   Discarded datum unknown in Proj4 definition
 
-#Hands on GRASS:
-run <- FALSE
-if (nchar(Sys.getenv("GISRC")) > 0 &&
-    read.dcf(Sys.getenv("GISRC"))[1,"LOCATION_NAME"] == "nc_basic_spm_grass7") run <- TRUE
-    oechoCmd <- get.echoCmdOption()
-    set.echoCmdOption(TRUE)
-if (run) {
-  execGRASS("r.carve", raster="dem_proj", vector="streams", output="dem_carved", width=30, depth=30)
-}
-#ERROR: Raster map <dem_proj> not found
+#DELINEATE STREAM NETWORK
+kitui = delineate(dem_carved, threshold=1e+03)
+  # Warning messages:
+  #   1: In delineate(dem_carved, threshold = 1e+06) :
+  #   Small threshold; excessive computation time and memory usage are possible if threshold not increased
+  # 2: In showSRID(SRS_string, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
+  #   Discarded datum unknown in Proj4 definition
+  # 3: In showSRID(SRS_string, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
+  #   Discarded datum unknown in Proj4 definition
+  # 4: In showSRID(SRS_string, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
+  #   Discarded datum unknown in Proj4 definition
+  # 5: In showSRID(SRS_string, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
+  #   Discarded datum unknown in Proj4 definition
 
+#memory.limit(size=30000)
 
-
-
-
-dem_carved <- raster("~/01Master/MasterThesis/Pius/DEM/dem_carved.tif")
-
-#delineate stream network   
-
-kitui = delineate(dem_carved,threshold= 1e+05)
-#plot(dem_carved, col=terrain.colors(20), axes= FALSE)
-#plot(kitui@stream, col="blue", add=T, legend=F)
-
-
-
-
+kitui_Tp = pixel_topology(kitui)
+kivec = vectorise_stream(kitui[["stream"]], Tp=kitui_Tp)
+plot(dem_carved, col=terrain.colors(20), axes= FALSE)
+plot(st_geometry(kivec), col='blue', add = TRUE)
 
 
 
