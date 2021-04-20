@@ -111,20 +111,24 @@ catchment(x=KWest_snapped, drainage=drain, output="sf") #area=T
     #Error in system2("grass74", args = c("--config path"), stdout = TRUE) : 
     #  '"grass74"' not found
 
-{
 result <- list()
 x<- sp::coordinates(KWest_snapped)
-for(i in 1:nrow(x))
-{
+for(i in 1:nrow(x)) {
   rgrass7::execGRASS("r.water.outlet", flags=c("overwrite", "quiet"), input = "drain", 
                      output = "catchment_areas", coordinates = x[i,])
+  catchment_areas = raster(readRAST("catchment_areas"))
   rgrass7::execGRASS("r.to.vect", flags = c('overwrite', 'quiet'), input = "catchment_areas", 
                    output = "ca_vect", type = 'area', column='value')
   vect = sf::st_as_sf(rgrass7::readVECT("ca_vect", ignore.stderr = TRUE))
   result[[i]] = vect
 }
-return(result)
-}
-#catchment_areas = raster(readRAST("catchment_areas"))
-#Error: no function to return from, jumping to top level 
+#WARNINGs: Vector map <ca_vect> already exists and will be overwritten !!!
 
+ca_all <- do.call(rbind, result) 
+ca_all <- cbind(ID = 1:nrow(ca_all), ca_all) 
+
+plot(st_geometry(ca_all))
+
+
+
+     
