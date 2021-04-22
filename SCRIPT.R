@@ -130,5 +130,4 @@ ca_all <- cbind(ID = 1:nrow(ca_all), ca_all)
 plot(st_geometry(ca_all))
 
 
-
      
