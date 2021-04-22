@@ -18,21 +18,21 @@ library(WatershedTools)
 #options(gisBase = "C:/PROGRA~1//QGIS3~1.18/apps/grass/grass78")
 options(gisBase = "C:/Program Files/GRASS GIS 7.8")
 
-      #########################################
-      ############ TEST DATA ##################
-      #########################################
-      data(kamp_dem)
-      kamp = delineate(kamp_dem)
-      kamp_Tp = pixel_topology(kamp)
-      ## Warning in .check_topology(res, warn = TRUE): Invalid topology; 1 nodes are
-      ## downstream of more than two nodes.
-      kv = vectorise_stream(kamp[["stream"]], Tp=kamp_Tp)
-      ## WARNING: Memory leak: 4 points are still in use
-      plot(kamp_dem, col=terrain.colors(20), axes = FALSE)
-      plot(st_geometry(kv), col='blue', add = TRUE)
-      
-      kamp_Tr = reach_topology(kamp, kamp_Tp)
-      #########################################
+      # #########################################
+      # ############ TEST DATA ##################
+      # #########################################
+      # data(kamp_dem)
+      # kamp = delineate(kamp_dem)
+      # kamp_Tp = pixel_topology(kamp)
+      # ## Warning in .check_topology(res, warn = TRUE): Invalid topology; 1 nodes are
+      # ## downstream of more than two nodes.
+      # kv = vectorise_stream(kamp[["stream"]], Tp=kamp_Tp)
+      # ## WARNING: Memory leak: 4 points are still in use
+      # plot(kamp_dem, col=terrain.colors(20), axes = FALSE)
+      # plot(st_geometry(kv), col='blue', add = TRUE)
+      # 
+      # kamp_Tr = reach_topology(kamp, kamp_Tp)
+      # #########################################
 
 #Digital Elevation Model 
 dem <- raster("~/01Master/MasterThesis/Pius/DEM/DEM_ext.tif", format="GTiff")
@@ -74,7 +74,7 @@ dem_carved = raster(readRAST("dem_carved"))
     #plot(st_geometry(kivec), col='blue', add = TRUE)
 
 
-# STREAMS: r.stream.extract // [extract_stream() NOT THERE YET]
+# STREAMS: r.stream.extract // [extract_stream() fOES NOT EXIST YET]
 execGRASS("r.watershed", parameters = list(elevation="dem_carved", accumulation="accu", drainage="drain"), 
           flags="overwrite")
 
@@ -106,9 +106,11 @@ KWest_proj <- spTransform(sd_KWest, crs("+proj=utm +zone=37 +south +datum=WGS84 
 
 KWest_snapped <- snapToStream(KWest_proj, r_stream, buff=100)
 
-#Create catchment area at each sand dam point
+################################################
+######## Catchment Delineation #################
+# create catchment area at each sand dam point #
 
-catchment(x=KWest_snapped, drainage=drain, output="sf") #area=T
+#catchment(x=KWest_snapped, drainage=drain, output="sf") #area=T
     #Error in system2("grass74", args = c("--config path"), stdout = TRUE) : 
     #  '"grass74"' not found
 
@@ -123,15 +125,51 @@ for(i in 1:nrow(x)) {
   vect = sf::st_as_sf(rgrass7::readVECT("ca_vect", ignore.stderr = TRUE))
   result[[i]] = vect
 }
-#WARNINGs: Vector map <ca_vect> already exists and will be overwritten !!!
+#WARNINGs: Vector map <ca_vect> already exists and will be overwritten
 
 ca_all <- do.call(rbind, result) 
 ca_all <- cbind(ID = 1:nrow(ca_all), ca_all) 
 
 plot(st_geometry(ca_all))
+class(ca_all)
 
 
+ca_all <- st_as_sf(ca_all)
+ca_all <- ca_all %>%
+  select(-cat, -value, -label)
 
+#save ca_all (so I do not need to re-run it)
 
+  # st_write(dsn = "~/01Master/MasterThesis/Pius/geodata/ca_all.shp", layer = 'ca_all')
+  #   # Error in UseMethod("st_write") : 
+  #   #   no applicable method for 'st_write' applied to an object of class "character"
+  
+  ca_all <- as(ca_all, "Spatial")
+  writeOGR(ca_all, dsn = "~/01Master/MasterThesis/Pius/geodata" , layer="ca_all" , driver = "ESRI Shapefile", overwrite_layer=T)
 
-     
+cas <- readOGR(dsn="~/01Master/MasterThesis/Pius/geodata", layer="ca_all")
+cas <- st_as_sf(cas)
+###############
+### BUFFER ####
+###############
+
+#sand dam buffer
+KWest_snapped <- st_as_sf(KWest_snapped)
+sdbuf <- st_buffer(KWest_snapped, 500)
+
+#intersecting sand dam buffer with catchment areas
+sd_ca <- st_intersection(sdbuf, cas)
+sd_ca_int <- sd_ca[which(sd_ca$ID == sd_ca$ID.1),]
+
+plot(st_geometry(sd_ca))
+plot(st_geometry(sd_ca_int))
+
+#river buffer
+stream <- st_as_sf(v_stream) #or r_stream?
+rivbuf <- st_buffer(stream, 100) #check distance decision again! 
+rivbuf <- st_union(rivbuf) 
+
+#intersect
+sd_area <- st_intersection(sd_ca_int, rivbuf)
+plot(st_geometry(sd_area))
+
