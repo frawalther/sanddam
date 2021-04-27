@@ -53,8 +53,11 @@ dem_carved = raster(readRAST("dem_carved"))
 
 #writeRaster(dem_carved, "~/01Master/MasterThesis/Pius/DEM/d_carved.tif", format="GTiff")
 
-    #DELINEATE STREAM NETWORK 
-    #kitui = delineate(dem_carved, threshold=5e+04)# outlet=NA (default), set outlet=c(4704588, 2847762)
+###########################
+#DELINEATE STREAM NETWORK##
+###########################
+    #DID NOT USE: 
+            #kitui = delineate(dem_carved, threshold=5e+04)# outlet=NA (default), set outlet=c(4704588, 2847762)
             # Warning messages:
             #   1: In delineate(dem_carved, threshold = 1e+06) :
             #   Small threshold; excessive computation time and memory usage are possible if threshold not increased
@@ -68,20 +71,22 @@ dem_carved = raster(readRAST("dem_carved"))
             #   Discarded datum unknown in Proj4 definition
             
     
-    #kitui_Tp = pixel_topology(kitui)
-    #kivec = vectorise_stream(kitui[["stream"]], Tp=kitui_Tp) #streams arent captured nicely with delineate(); for more exact delienation: extract_stream() // r.stream.extract()
-    #plot(dem_carved, col=terrain.colors(20), axes= FALSE)
-    #plot(st_geometry(kivec), col='blue', add = TRUE)
+            #kitui_Tp = pixel_topology(kitui)
+            #kivec = vectorise_stream(kitui[["stream"]], Tp=kitui_Tp) #streams arent captured nicely with delineate(); for more exact delienation: extract_stream() // r.stream.extract()
+            #plot(dem_carved, col=terrain.colors(20), axes= FALSE)
+            #plot(st_geometry(kivec), col='blue', add = TRUE)
+        
+            #or
+            # STREAMS: r.stream.extract // [extract_stream() DOES NOT EXIST YET]
 
-
-# STREAMS: r.stream.extract // [extract_stream() fOES NOT EXIST YET]
 execGRASS("r.watershed", parameters = list(elevation="dem_carved", accumulation="accu", drainage="drain"), 
           flags="overwrite")
 
 accu = raster(readRAST("accu"))
-drain = readVECT("v_stream")
+drain = raster(readRAST("drain"))
 
-execGRASS("r.stream.extract", parameters=list(elevation="dem_carved", accumulation="accu", threshold=200, stream_raster="r_stream", stream_vector="v_stream"), 
+execGRASS("r.stream.extract", parameters=list(elevation="dem_carved", accumulation="accu", threshold=200, 
+                                              stream_raster="r_stream", stream_vector="v_stream"), 
           flags="overwrite") ##direction="fdir"
 r_stream = raster(readRAST("r_stream"))
 v_stream = readVECT("v_stream")
@@ -95,7 +100,8 @@ sd_KWest <- SpatialPointsDataFrame(KWest[,3:4], KWest)
 crs(sd_KWest) <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 KWest_proj <- spTransform(sd_KWest, crs("+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 
-        # writeVECT(KWest_proj, "KWest_proj", driver="ESRI Shapefile", v.in.ogr_flags="overwrite") 
+        # DID NOT USE #
+        #writeVECT(KWest_proj, "KWest_proj", driver="ESRI Shapefile", v.in.ogr_flags="overwrite") 
         # execGRASS("r.stream.snap", parameters=list(input="KWest_proj", output="KWest_snap", stream_rast="r_stream", accumulation="accu", threshold=200, radius=1),
         #           flags="overwrite")
         # 
@@ -125,14 +131,13 @@ for(i in 1:nrow(x)) {
   vect = sf::st_as_sf(rgrass7::readVECT("ca_vect", ignore.stderr = TRUE))
   result[[i]] = vect
 }
-#WARNINGs: Vector map <ca_vect> already exists and will be overwritten
+#~135 WARNINGs: Vector map <ca_vect> already exists and will be overwritten 
 
 ca_all <- do.call(rbind, result) 
 ca_all <- cbind(ID = 1:nrow(ca_all), ca_all) 
 
 plot(st_geometry(ca_all))
 class(ca_all)
-
 
 ca_all <- st_as_sf(ca_all)
 ca_all <- ca_all %>%
@@ -168,16 +173,15 @@ plot(st_geometry(sd_ca_int))
 #river buffer
 stream <- st_as_sf(v_stream) #or r_stream?
 rivbuf <- st_buffer(stream, 100) #check distance decision again! 
-rivbuf <- st_union(rivbuf) 
+rivbuf <- st_union(rivbuf) #CAUTION: breakdowns possible 
 
 #intersect
 sd_area <- st_intersection(sd_ca_int, rivbuf)
 plot(st_geometry(sd_area))
 
-st_write(sd_area, dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'sd_area', driver="ESRI Shapefile") #check again
+st_write(sd_area, dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'sd_area', driver="ESRI Shapefile", delete_layer = TRUE) #check again
 
 sd_area <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'sd_area')
-sd_area <- as(sd_area, "Spatial")
 
 
 #######################################################################################################
@@ -189,8 +193,10 @@ crs(LC) <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
 proj <- "+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
 
-LC_proj <- projectRaster(LC, crs=proj, method='ngb') #painly slow 
+LC_proj <- projectRaster(LC, crs=proj, method='ngb') #slow 
 writeRaster(LC_proj, "~/01Master/MasterThesis/Pius/geodata/LC_proj.tif", format="GTiff", overwrite=T)
+
+#LC_proj <- raster("~/01Master/MasterThesis/Pius/geodata/LC_proj.tif")
 
 ## crop and mask
 LC_r <- crop(LC_proj, extent(sd_area))
@@ -237,4 +243,4 @@ lc_int <- rbind(crop_int, shrub_int, vega_int)
 #calculate area for each sf feature (basis to e.g. calculate overall mean EVI/SD)
 lc_int$area_m2 <- st_area(lc_int)
 
-
+st_write(lc_int, dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int', driver="ESRI Shapefile", delete_layer = TRUE) #check again
