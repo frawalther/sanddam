@@ -56,7 +56,7 @@ dem_carved = raster(readRAST("dem_carved"))
 ###########################
 # DELINEATE STREAM NETWORK 
 ###########################
-    #DID NOT USE delineate() as analysis is interested in astreams of multiple catchments
+    #DID NOT USE delineate() as I am interested in streams of multiple catchments
             #kitui = delineate(dem_carved, threshold=5e+04)# outlet=NA (default), set outlet=c(4704588, 2847762)
             # Warning messages:
             #   1: In delineate(dem_carved, threshold = 1e+06) :
