@@ -108,6 +108,7 @@ date <- lubridate::ymd(basename(split_col))
 #mclapply() [only works for Mac - instead parLapply]
 #numCores <- detectCores()-1
 
+
 ############################
 #### SUBSAMPLE #############
 ############################
