@@ -21,6 +21,10 @@ extent(ref) <- extent(e_proj)
 res(ref) <- c(30,30)
 crs(ref) <- "+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs"
 
+###########################
+###### ALL DATA ###########
+###########################
+
 # #LAPPLY (Issue: running into memory shortage)
 # list_r <- lapply(EVI_list, raster)
 # r_proj <- lapply(list_r, projectRaster, to=ref, res=c(30,30), 
@@ -57,11 +61,10 @@ EVI_rasters <- raster::stack(EVI_files)
 plot(EVI_rasters$outfiles1)
 
 #brick
-EVI_brick <- brick(EVI_rasters)
+#EVI_brick <- brick(EVI_rasters)
 
 stackSave(EVI_rasters, "C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/EVIstack.stk")
 writeRaster(EVI_rasters, "C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/EVIstack.tif", format="GTiff")
-
 
 #comments:
 # executing loop function took >2-3hours
@@ -81,11 +84,6 @@ split_col = unlist(lapply(split_list, "[[", 9))
 date <- lubridate::ymd(basename(split_col))
 
 ###################################################################### 
-
-
-#### Zonal statistics ####
-?zonal
-
 
 ##################### Error: cannot allocate vector of size N Mb
 ### MEMORY ISSUE #### How to improve R performance? 
@@ -115,18 +113,8 @@ date <- lubridate::ymd(basename(split_col))
 
 EVI_trial <- EVI_list[1:10]
 
-#Create reference raster to set extent
-e <- readOGR(dsn="~/01Master/MasterThesis/Pius/climatedata", layer="extent_rough")
-e_proj <- spTransform(e, crs("+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"))
-
-ref<-raster()
-extent(ref) <- extent(e_proj)
-res(ref) <- c(30,30)
-crs(ref) <- "+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs"
-
 gc()
 
-#outfiles <-list()
 tmp <- "~/01Master/MasterThesis/Pius/R/sand dam/t/"
 for(i in 1:length(EVI_trial)) {
   r <-raster(EVI_trial[[i]])
@@ -139,28 +127,43 @@ for(i in 1:length(EVI_trial)) {
 
 EVI_t <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/t/", pattern='EVI', recursive=T, full.names = T)
 
-#stack files 
+# stack files 
 t_rasters <- raster::stack(EVI_t)
 plot(t_rasters$X_EVI_20140424_)
 
-#brick
-EVI_brick <- brick(t_rasters)
+# brick
+#EVI_brick <- brick(t_rasters)
 
-#comment: units???
-
-library(rts)
-
-install.packages("rts")
-
-#Load in pre-processed land cover dataset/shapefile
+# Load in pre-processed land cover dataset/shapefile
 #SD = sand dam ID (n=135)
 #LC_proj = land cover class [value]
 #class = LC class [name]
-
 lc_int <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int')
-head(lc_int)
+
+
+#### Zonal statistics ####
+
+#zonalstats()
+#install.packages("spatialEco") # my Rversion is too old
+#remotes::install_github("jeffreyevans/spatialEco")
+#install.packages("exactextractr")
+library(spatialEco)
+library(exactextractr)
+
+zs <- zonal.stats(x=lc_int, y=t_rasters, stats = "mean")
+head(zs)
+nrow(zs) #286
+
+#zonal()
 lc_int$num <- seq.int(nrow(lc_int))
 lc_r <- fasterize(lc_int, ref, "num")
+
+z <- zonal(t_rasters, lc_r, "mean", na.rm=F )
+head(z)
+nrow(z) #262
+
+
+#Looping approaches:
 
 result <- list()
 for(i in 1:length(EVI_t)) {
@@ -168,11 +171,28 @@ for(i in 1:length(EVI_t)) {
   z <- zonal(r, lc_r, "mean", na.rm=T)
   result[[i]] = z
 }
-z <- zonal(t_rasters, lc_r, "mean", na.rm=F ) #na.rm=T or F
-head(z)
-nrow(z)
-lc_r
 
+result <- list()
+for(i in 1:length(EVI_t)) {
+  r <- raster(EVI_t[[i]])
+  z <- zonal.stats(x=lc_int, y=r, stats = c("min", "mean", "max"))
+  result[[i]] = z
+}
+warnings()
+#need to remove NAs before!?
+
+
+#################
 ?zonal
-library(spatialEco)
+?extract()
 ?zonal.stats
+?`zonal,RasterStackBrick,RasterLayer-method`
+
+
+#comment: units???
+
+library(rts)
+
+install.packages("rts")
+
+
