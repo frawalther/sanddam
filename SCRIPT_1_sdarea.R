@@ -4,7 +4,7 @@
 # remotes::install_github("flee-group/watershed", ref="main", dependencies=TRUE)
 # remotes::install_github("mtalluto/WatershedTools")
 
-#Load in libraries
+# Load in libraries
 library(rgrass7)
 library(raster)
 library(dplyr)
@@ -15,7 +15,6 @@ library(watershed)
 library(Matrix)
 library(WatershedTools)
 
-#options(gisBase = "C:/PROGRA~1//QGIS3~1.18/apps/grass/grass78")
 options(gisBase = "C:/Program Files/GRASS GIS 7.8")
 
       # #########################################
@@ -34,29 +33,30 @@ options(gisBase = "C:/Program Files/GRASS GIS 7.8")
       # kamp_Tr = reach_topology(kamp, kamp_Tp)
       # #########################################
 
-#Digital Elevation Model 
+# Load in Digital Elevation Model 
 dem <- raster("~/01Master/MasterThesis/Pius/DEM/DEM_ext.tif", format="GTiff")
 dem_proj <- projectRaster(dem, crs="+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0", method='ngb') 
 
-# hand digitized streams
+# Load in hand digitized streams
 streams <- readOGR(dsn="~/01Master/MasterThesis/Pius/DEM", layer="stream_dig")
-#Carve DEM by manual edited streams 
+
+# Carve DEM with manual edited streams 
 watershed:::.start_grass(dem_proj, "dem_proj")
 writeVECT(streams, "streams", driver="ESRI Shapefile")
 execGRASS("r.carve", raster="dem_proj", vector="streams", output="dem_carved", width=30, depth=30)
-#WARNING: trying to divide by zero...no unique solution for
-#system...skipping...
+  #WARNING: trying to divide by zero...no unique solution for
+  #system...skipping...
 dem_carved = raster(readRAST("dem_carved"))
-# Warning message:
-#   In showSRID(uprojargs, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
-#   Discarded datum unknown in Proj4 definition
+  # Warning message:
+  #   In showSRID(uprojargs, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
+  #   Discarded datum unknown in Proj4 definition
 
 #writeRaster(dem_carved, "~/01Master/MasterThesis/Pius/DEM/d_carved.tif", format="GTiff")
 
 ###########################
-#DELINEATE STREAM NETWORK##
+# DELINEATE STREAM NETWORK 
 ###########################
-    #DID NOT USE: 
+    #DID NOT USE delineate() as analysis is interested in astreams of multiple catchments
             #kitui = delineate(dem_carved, threshold=5e+04)# outlet=NA (default), set outlet=c(4704588, 2847762)
             # Warning messages:
             #   1: In delineate(dem_carved, threshold = 1e+06) :
@@ -79,19 +79,21 @@ dem_carved = raster(readRAST("dem_carved"))
             #or
             # STREAMS: r.stream.extract // [extract_stream() DOES NOT EXIST YET]
 
+# Generate flow accumulation and flow direction
 execGRASS("r.watershed", parameters = list(elevation="dem_carved", accumulation="accu", drainage="drain"), 
           flags="overwrite")
 
 accu = raster(readRAST("accu"))
 drain = raster(readRAST("drain"))
 
+# Generate stream network (threshold: >= 200 accumulated cells)
 execGRASS("r.stream.extract", parameters=list(elevation="dem_carved", accumulation="accu", threshold=200, 
                                               stream_raster="r_stream", stream_vector="v_stream"), 
           flags="overwrite") ##direction="fdir"
 r_stream = raster(readRAST("r_stream"))
 v_stream = readVECT("v_stream")
 
-#SAND DAM POINTS 
+# SAND DAM POINTS 
 sd <- read.csv("~/01Master/MasterThesis/Pius/sd_all_explicit.csv", header=T)
 KWest <- sd %>%
   filter(study == "Kitui West (Pius)")
@@ -100,25 +102,16 @@ sd_KWest <- SpatialPointsDataFrame(KWest[,3:4], KWest)
 crs(sd_KWest) <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 KWest_proj <- spTransform(sd_KWest, crs("+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 
-        # DID NOT USE #
-        #writeVECT(KWest_proj, "KWest_proj", driver="ESRI Shapefile", v.in.ogr_flags="overwrite") 
-        # execGRASS("r.stream.snap", parameters=list(input="KWest_proj", output="KWest_snap", stream_rast="r_stream", accumulation="accu", threshold=200, radius=1),
-        #           flags="overwrite")
-        # 
-        # KWest_snap = readVECT("KWest_snap", type="point")
-        
-        # KWest_sd <- st_as_sf(KWest, coords= c("Point.X", "Point.Y"), crs=4326)
-        # KWest_sd <- st_transform(KWest_sd, 32737)
-
 KWest_snapped <- snapToStream(KWest_proj, r_stream, buff=100)
 
 #################################
 ##### Catchment Delineation #####
 #################################
 
-#catchment(x=KWest_snapped, drainage=drain, output="sf") #area=T
-    #Error in system2("grass74", args = c("--config path"), stdout = TRUE) : 
-    #  '"grass74"' not found
+      #DID NOT USE catchment() 
+        #catchment(x=KWest_snapped, drainage=drain, output="sf") #area=T
+          #Error in system2("grass74", args = c("--config path"), stdout = TRUE) : 
+          #  '"grass74"' not found
 
 result <- list()
 x<- sp::coordinates(KWest_snapped)
@@ -159,7 +152,7 @@ cas <- st_as_sf(cas)
 ### BUFFER ####
 ###############
 
-#sand dam buffer
+#sand dam buffer [500m]
 KWest_snapped <- st_as_sf(KWest_snapped)
 sdbuf <- st_buffer(KWest_snapped, 500)
 
@@ -170,7 +163,7 @@ sd_ca_int <- sd_ca[which(sd_ca$ID == sd_ca$ID.1),]
 plot(st_geometry(sd_ca))
 plot(st_geometry(sd_ca_int))
 
-#river buffer
+#river buffer [100m]
 stream <- st_as_sf(v_stream) #or r_stream?
 rivbuf <- st_buffer(stream, 100) #check distance decision again! 
 rivbuf <- st_union(rivbuf) #CAUTION: breakdowns possible 
@@ -241,6 +234,6 @@ unique(LC_r)
 lc_int <- rbind(crop_int, shrub_int, vega_int)
 
 #calculate area for each sf feature (basis to e.g. calculate overall mean EVI/SD)
-lc_int$area_m2 <- st_area(lc_int)
+lc_int$area_m2 <- st_area(lc_int) #check again 
 
 st_write(lc_int, dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int', driver="ESRI Shapefile", delete_layer = TRUE) #check again
