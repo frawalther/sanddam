@@ -52,6 +52,8 @@ dem_carved = raster(readRAST("dem_carved"))
   #   Discarded datum unknown in Proj4 definition
 
 #writeRaster(dem_carved, "~/01Master/MasterThesis/Pius/DEM/d_carved.tif", format="GTiff")
+#dem_carved <- raster("~/01Master/MasterThesis/Pius/DEM/d_carved.tif", format="GTiff")
+#crs(dem_carved) <- "+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
 
 ###########################
 # DELINEATE STREAM NETWORK 
@@ -103,6 +105,15 @@ crs(sd_KWest) <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 KWest_proj <- spTransform(sd_KWest, crs("+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"))
 
 KWest_snapped <- snapToStream(KWest_proj, r_stream, buff=100)
+
+#SAVE 
+#KWest_snapped <- st_as_sf(KWest_snapped)
+#st_write(KWest_snapped, dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'sd_KWest_snapped', driver = 'ESRI Shapefile', delete_layer = T )
+    # Warning message:
+    #   In abbreviate_shapefile_names(obj) :
+    #   Field names abbreviated for ESRI Shapefile driver
+#KWest_snapped <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = "sd_KWest_snapped")
+
 
 #################################
 ##### Catchment Delineation #####
