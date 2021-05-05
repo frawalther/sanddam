@@ -14,9 +14,7 @@ library(fasterize)
   #reflectance values (EVI) in datasets are scaled by 10,000
   #INT2S data type
 
-#open questions:
-  #cloud cover: any cloud masking necessary? [NOT DONE]
-  #https://philipperufin.github.io/gcg_eo/#session-02-data-quality-cloud-masking
+#OPEN TASKS: create mosaic of rasters 
 
 EVI_list <- list.files("~/01Master/MasterThesis/Pius/NDVI_EVI", pattern='.tif$', recursive=T, full.names = T) #FW_EVI_2014-2020 
 EVI_list #839 files
@@ -68,7 +66,70 @@ for(i in 1:length(EVI_list)) {
 # executing loop function took ~5 hours
 
 #Load outfiles
-EVI_files <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/outfiles/", pattern='EVI', recursive=T, full.names = T)
+EVI_files <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/outfiles/", 
+                        pattern='EVI', recursive=T, full.names = T)
+
+#Raster mosaic
+
+  # #extract date from filenames 
+  split_evi = strsplit(EVI_files, split="_", fixed=TRUE)
+  split_e = unlist(lapply(split_evi, "[[", 4)) #[4] = date of acquisition
+  dates_u <- unique(split_e)
+
+gc()
+#Load all rasters inside a list 
+rlist <- list()
+for (i in 1:length(EVI_files)) {
+  r <- raster(EVI_files[[i]])
+  rlist[[i]] = r
+}
+
+rlist2 <- list()
+for (i in seq_along(dates_u)){
+  idx <- which(split_e %in% dates_u[i]) #some index
+  if(length(idx) > 1){
+    rlisttemp <- rlist[idx] #create temporal list
+    rlisttemp$fun <- mean
+    rlist2[[i]] <- do.call(mosaic, rlisttemp)
+  }else{
+    rlist2[[i]] <- rlist[[idx]] #for non mosaicking images 
+  }
+}
+
+# Error in fun(v, na.rm = TRUE) : 
+#   'Calloc' could not allocate memory (11884313 of 4 bytes)
+
+#wieder jeweils raus schreiben?
+tmp <- "~/01Master/MasterThesis/Pius/R/sand dam/raster_mosaic/"
+for (i in seq_along(dates_u)){
+  idx <- which(split_e %in% dates_u[i]) #some index
+  if(length(idx) > 1){
+    rlisttemp <- rlist[idx]
+    rlisttemp$fun <- mean
+    rmo <- do.call(mosaic, rlisttemp)
+    rm <- writeRaster(rmo, paste(tmp, i, "EVI", dates_u[[i]], ".tif", sep="_", overwrite=T))
+  }else{
+    rmo <- rlist[[idx]] #for non mosaicking images 
+    rm <- writeRaster(rmo, paste(tmp, i, "EVI", dates_u[[i]], ".tif", sep="_", overwrite=T))
+  }
+  removeTmpFiles(0.1)
+}
+
+
+###
+?mosaic
+?mosaic_rasters
+
+
+
+
+# rlist <- lapply(list.files('/your/path/to/rasters',
+#                            pattern = '.tif$',full.names = T,
+#                            recursive = T),FUN=raster)
+
+#start: 16:15
+#end:
+
 
 #stack files 
 EVI_rasters <- raster::stack(EVI_files)
@@ -129,13 +190,16 @@ zosta %>%
   ggplot(aes(x=date, y=mean)) + geom_point() 
 
 #lots of zeros -> neglect them? =NA???
+#replace 0 with NA?
+zosta[zosta==0] <- NA
 
+zosta_
+#plot
 zosta %>%
   na.omit() %>%
-  filter_if(., is.numeric, all_vars((.) != 0)) %>%
+#  filter(X == 1) %>% 
   ggplot(aes(x=date, y=mean)) + geom_point() 
-filterX ==1 & mean > 0) %>% 
-  
+
 ######################################################################
 #Alternative to zonal.stats():
 #zonal()
