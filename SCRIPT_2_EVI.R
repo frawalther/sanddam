@@ -8,13 +8,11 @@ library(lubridate)
 library(sf)
 library(fasterize)
 
-#background info:
-  #https://philipperufin.github.io/gcg_eo/#session-03-vegetation-indices-data-transforms
-  #evi <- 2.5 * ((nIR – red) / (nIR + 6 * red – 7.5 * blue + 10000))
-  #reflectance values (EVI) in datasets are scaled by 10,000
-  #INT2S data type
 
-#OPEN TASKS: create mosaic of rasters 
+#https://philipperufin.github.io/gcg_eo/#session-03-vegetation-indices-data-transforms
+#evi <- 2.5 * ((nIR – red) / (nIR + 6 * red – 7.5 * blue + 10000))
+#reflectance values (EVI) in datasets are scaled by 10,000
+#INT2S data type
 
 EVI_list <- list.files("~/01Master/MasterThesis/Pius/NDVI_EVI", pattern='.tif$', recursive=T, full.names = T) #FW_EVI_2014-2020 
 EVI_list #839 files
@@ -22,7 +20,6 @@ EVI_list #839 files
 #extract date from filenames 
 split_list = strsplit(EVI_list, split="_", fixed=TRUE)
 split_col = unlist(lapply(split_list, "[[", 9)) #[9] = date of acquisition
-#date <- lubridate::ymd(basename(split_col))
 
 #Create reference raster to set extent
 e <- readOGR(dsn="~/01Master/MasterThesis/Pius/climatedata", layer="extent_rough")
@@ -33,26 +30,10 @@ extent(ref) <- extent(e_proj)
 res(ref) <- c(30,30)
 crs(ref) <- "+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs"
 
-###########################
-###### ALL DATA ###########
-###########################
-
-        # #LAPPLY (Issue: running into memory shortage)
-        # list_r <- lapply(EVI_list, raster)
-        # r_proj <- lapply(list_r, projectRaster, to=ref, res=c(30,30), 
-        #                  crs="+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs", 
-        #                  method="bilinear")
-        # #Error: cannot allocate vector of size N Mb
-        # #There were 50 or more warnings (use warnings() to see the first 50)
-        # 
-        # ex_r <- lapply(list_r, extend, y=extent(ref), value=NA)
-        # ##Error: cannot allocate vector of size N Mb
-        # #crop_r <-lapply(list_r, crop, y=ref)
-        
-        #instead: Writing LOOP (run functions for each object (i) in list and respectively write Raster) 
-
 #garbage collection 
 gc()
+
+#rasters have different extent -> Reproject rasters
 
 tmp <- "~/01Master/MasterThesis/Pius/R/sand dam/outfiles/"
 for(i in 1:length(EVI_list)) {
@@ -63,288 +44,145 @@ for(i in 1:length(EVI_list)) {
   rc <- writeRaster(r_proj, paste(tmp, i, "EVI",split_col[[i]],".tif",sep="_"), overwrite=T)
   removeTmpFiles(0.1)
 }
-# executing loop function took ~5 hours
 
-#Load outfiles
+#Load reprojected rasters (outfiles)
 EVI_files <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/outfiles/", 
                         pattern='EVI', recursive=T, full.names = T)
 
-#Raster mosaic
+#Raster mosaic: merge rasters derived at same date; decrease amount of rasters that are getting stacked
 
-  # #extract date from filenames 
-  split_evi = strsplit(EVI_files, split="_", fixed=TRUE)
-  split_e = unlist(lapply(split_evi, "[[", 4)) #[4] = date of acquisition
-  dates_u <- unique(split_e)
+split_evi = strsplit(EVI_files, split="_", fixed=TRUE)
+split_e = unlist(lapply(split_evi, "[[", 4))
 
-gc()
+#set zeros to NA 
+tmp <- "~/01Master/MasterThesis/Pius/R/sand dam/rasters_NA/"
+for(i in 1:length(EVI_files)) {
+  r <- raster(EVI_files[[i]])
+  values(r)[values(r) == 0] = NA
+  r_na <- writeRaster(r, paste(tmp, i, "_EVI_na_",split_e[[i]], ".tif", sep="")) #, overwrite=TRUE) #".tif",
+  removeTmpFiles(0.1)
+}
+
+EVI_na_f <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/rasters_NA/", 
+                       pattern='EVI', recursive=T, full.names = T)
+
+#extract date from filenames 
+split_evi = strsplit(EVI_na_f, split="_", fixed=TRUE)
+split_e = unlist(lapply(split_evi, "[[", 5)) 
+split = strsplit(split_e, split=".", fixed=T)
+spli = unlist(lapply(split, "[[", 1))
+dates_u <- unique(spli)  
+
 #Load all rasters inside a list 
 rlist <- list()
-for (i in 1:length(EVI_files)) {
-  r <- raster(EVI_files[[i]])
+for (i in 1:length(EVI_na_f)) {
+  r <- raster(EVI_na_f[[i]])
   rlist[[i]] = r
 }
 
-rlist2 <- list()
+#Create loop for mosaic() rasters and write each output raster into a folder to not run into memory issues 
+tmp <- "~/01Master/MasterThesis/Pius/R/sand dam/raster_mosaics/"
 for (i in seq_along(dates_u)){
-  idx <- which(split_e %in% dates_u[i]) #some index
-  if(length(idx) > 1){
-    rlisttemp <- rlist[idx] #create temporal list
-    rlisttemp$fun <- mean
-    rlist2[[i]] <- do.call(mosaic, rlisttemp)
-  }else{
-    rlist2[[i]] <- rlist[[idx]] #for non mosaicking images 
-  }
-}
-
-# Error in fun(v, na.rm = TRUE) : 
-#   'Calloc' could not allocate memory (11884313 of 4 bytes)
-
-#wieder jeweils raus schreiben?
-tmp <- "~/01Master/MasterThesis/Pius/R/sand dam/raster_mosaic/"
-for (i in seq_along(dates_u)){
-  idx <- which(split_e %in% dates_u[i]) #some index
+  idx <- which(spli %in% dates_u[i])
   if(length(idx) > 1){
     rlisttemp <- rlist[idx]
     rlisttemp$fun <- mean
-    rmo <- do.call(mosaic, rlisttemp)
-    rm <- writeRaster(rmo, paste(tmp, i, "EVI", dates_u[[i]], ".tif", sep="_", overwrite=T))
+    rmo <- do.call(mosaic, c(rlisttemp, na.rm=T))
+    rm <- writeRaster(rmo, paste(tmp, i, "EVI", dates_u[[i]], ".tif", sep="_")) # , overwrite=T
   }else{
     rmo <- rlist[[idx]] #for non mosaicking images 
-    rm <- writeRaster(rmo, paste(tmp, i, "EVI", dates_u[[i]], ".tif", sep="_", overwrite=T))
+    rm <- writeRaster(rmo, paste(tmp, i, "EVI", dates_u[[i]], ".tif", sep="_")) # overwrite=T
   }
-  removeTmpFiles(0.1)
+  #removeTmpFiles(0.1)
+  rm(rmo)
+  rm(rm)
+  #gc()
 }
 
 
-###
-?mosaic
-?mosaic_rasters
-
-
-
-
-# rlist <- lapply(list.files('/your/path/to/rasters',
-#                            pattern = '.tif$',full.names = T,
-#                            recursive = T),FUN=raster)
-
-#start: 16:15
-#end:
-
-
-#stack files 
-EVI_rasters <- raster::stack(EVI_files)
-  #plot(EVI_rasters$X_100_EVI_20190117_)
-
-# Load in pre-processed LAND COVER dataset [shapefile]
-    #SD/ ID / X / ID_1 = sand dam ID (n=135)
-    #LC_proj = land cover class [value]
-    #class = LC class [name]
-lc_int <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int')
-
-##########################
-#### Zonal statistics ####
-##########################
-
-#zonalstats()
-#install.packages("spatialEco") # my Rversion is too old
-#remotes::install_github("jeffreyevans/spatialEco")
-#install.packages("exactextractr")
-library(spatialEco)
-library(exactextractr)
-
-zs <- zonal.stats(x=lc_int, y=EVI_rasters, stats = "mean") 
-
-#redo same for standard deviation: need to write sd function for that within stats.zonal()? 
-# is "sd" possible?
-#zs_min <- zonal.stats(x=lc_int, y=EVI_rasters, stats = "min")
-#zs_max <- zonal.stats(x=lc_int, y=EVI_rasters, stats = "max") 
-  #very time consuming
-    #start ca. 11.30
-    #end: next day, 17:00
-
-head(zs)
-nrow(zs) #286
-
-write.csv(zs, "zonalstats.csv")
-#write.csv(zs_sd, "zs_sd.csv")
-
-
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-
-zonalstats <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/zonalstats.csv", header=T)
-
-zosta <- zonalstats %>%
-  gather(key=filename, value= mean, -X) #X = 286 sd_areas/LC 
-
-#data wrangling, extract date from filename 
-split_zosta = strsplit(zosta$filename, split="_", fixed=TRUE)
-split_z = unlist(lapply(split_zosta, "[[", 4))
-zosta$date <- lubridate::ymd(basename(split_z))
-
-#plot
-zosta %>%
-  na.omit() %>%
-  filter(X == 1) %>% 
-  ggplot(aes(x=date, y=mean)) + geom_point() 
-
-#lots of zeros -> neglect them? =NA???
-#replace 0 with NA?
-zosta[zosta==0] <- NA
-
-zosta_
-#plot
-zosta %>%
-  na.omit() %>%
-#  filter(X == 1) %>% 
-  ggplot(aes(x=date, y=mean)) + geom_point() 
-
-######################################################################
-#Alternative to zonal.stats():
-#zonal()
-#
-
-lc_int$num <- seq.int(nrow(lc_int))
-lc_r <- fasterize(lc_int, ref, "num")
-
-z <- zonal(t_rasters, lc_r, "mean", na.rm=F )
-head(z)
-nrow(z) #262
-
-head(lc_int)
-nrow(lc_int)
-ncol(lc_int)
-###################################################################### 
-
-
-##################### Error: cannot allocate vector of size N Mb
-### MEMORY ISSUE #### How to improve R performance? 
-#####################
-
-#garbage collection
-# gc() 
-#check memory limit
-# memory.limit()  
-# [1] 16182
-#memory.size()
-#rm()
-#check RAM 
-# library(benchmarkme)
-# benchmarkme::get_ram()
-#enable working on multiple cores in parallel [increases memory usage]
-# library(doParallel)
-# > detectCores()
-# [1] 8
-#mclapply() [only works for Mac - instead parLapply]
-#numCores <- detectCores()-1
-
-
-############################
-#### SUBSAMPLE #############
-############################
-
-EVI_trial <- EVI_list[1:10]
-
-gc()
-
-tmp <- "~/01Master/MasterThesis/Pius/R/sand dam/t/"
-for(i in 1:length(EVI_trial)) {
-  r <-raster(EVI_trial[[i]])
-  r_proj <- projectRaster( from=r, to=ref, res=c(30,30), 
-                           crs="+proj=utm +zone=37 +south +datum=WGS84 +units=m +no_defs", 
-                           method="bilinear")
-  rc <- writeRaster(r_proj, paste(tmp, "EVI", split_col[[i]], ".tif", sep="_"),overwrite=T)
-  removeTmpFiles(0.1)
-  }
-
-EVI_t <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/t/", pattern='EVI', recursive=T, full.names = T)
+#Load raster mosaics
+Rasmo_files <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/raster_mosaics/", 
+                          pattern='EVI', recursive=T, full.names = T)
 
 # stack files 
-t_rasters <- raster::stack(EVI_t)
-plot(t_rasters$X_EVI_20140424_)
+EVI_stack <- raster::stack(Rasmo_files)
+#plot(EVI_stack$X_1_EVI_20161031_)
 
-# brick
-#EVI_brick <- brick(t_rasters)
 
-# Load in pre-processed land cover dataset/shapefile
-#SD = sand dam ID (n=135)
-#LC_proj = land cover class [value]
-#class = LC class [name]
+# Load in pre-processed LAND COVER dataset/shapefile
+
 lc_int <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int')
+lc_int <- cbind(rn = rownames(lc_int), lc_int)
+library(exactextractr)
+EVI_mean <-exactextractr::exact_extract(EVI_stack, lc_int, "mean")
+#faster than extract() 
+#more acurate than zonal(): https://isciences.gitlab.io/exactextractr/
+#"raster pixels that are partially  covered by polygons are considered
+#ignores NA:
+# Undefined (NA) values are ignored in all of the named summary operations when they occur in the value raster. 
+#   When they occur in the weighting raster, they cause the result of the summary operation to be NA
 
+write.csv(EVI_mean, "EVI_mean_1.csv")
+#alternative zonal.stats() - dont knwo how to manually set mean, na.rm=T -> but does it base on exact_extract()?
 
-#### Zonal statistics ####
+#start 18:10 (exactextractr::exact_extract())
+#end next day 10:50 ~17h
 
 #zonalstats()
 #install.packages("spatialEco") # my Rversion is too old
 #remotes::install_github("jeffreyevans/spatialEco")
 #install.packages("exactextractr")
 library(spatialEco)
-library(exactextractr)
+#library(exactextractr)
+EVI_mean_zs <- zonal.stats(x=lc_int, y=EVI_stack, stats = "mean")
+write.csv(EVI_mean_zs, "EVI_mean_2.csv")
+#beginn 11:00
+#end next day 17:30 ~30h
 
-zs <- zonal.stats(x=lc_int, y=t_rasters, stats = "mean")
-head(zs)
-nrow(zs) #286
+#####################UNTIL HERE #######################
 
-save
-#zonal()
-lc_int$num <- seq.int(nrow(lc_int))
-lc_r <- fasterize(lc_int, ref, "num")
-
-z <- zonal(t_rasters, lc_r, "mean", na.rm=F )
-head(z)
-nrow(z) #262
+#compare!
 
 
-#Looping approaches:
 
-result <- list()
-for(i in 1:length(EVI_t)) {
-  r <- raster(EVI_t[[i]])
-  z <- zonal(r, lc_r, "mean", na.rm=T)
-  result[[i]] = z
-}
+#make a neat dataframe
 
-result <- list()
-for(i in 1:length(EVI_t)) {
-  r <- raster(EVI_t[[i]])
-  z <- zonal.stats(x=lc_int, y=r, stats = c("min", "mean", "max"))
-  result[[i]] = z
-}
-warnings()
-#need to remove NAs before!?
+zonalstats1 <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_mean_1.csv", header=T)
 
+library(tidyr)
+zosta1 <- zonalstats1 %>%
+  gather(key=filename, value= EVI_mean, -X) #X = 286 sd_areas/LC
 
-#################
-?zonal
-?extract()
-?zonal.stats
-?`zonal,RasterStackBrick,RasterLayer-method`
+#data wrangling, extract date from filename
+split_zosta = strsplit(zosta1$filename, split="_", fixed=TRUE)
+split_z = unlist(lapply(split_zosta, "[[", 4))
+zosta1$date <- lubridate::ymd(basename(split_z))
 
+#plot
+library(ggplot2)
+zosta1 %>%
+  na.omit() %>%
+  filter(X == 1) %>%
+  ggplot(aes(x=date, y=EVI_mean)) + geom_point()
 
-#comment: units???
-
-library(rts)
-
-install.packages("rts")
-
-#############
-### trash ###
-#############
-
-#brick
-#EVI_brick <- brick(EVI_rasters)
-
-# stackSave(EVI_rasters, "C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/EVIstack.stk")
-# writeRaster(EVI_rasters, "C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/EVIstack.tif", format="GTiff")
-#writeRaster takes very long, do I need to set datatype=INT2S?
-
-# comments:
-# executing loop function took ~5 hours
-# lost important filenames (including date etc.)
-# zu umständlich?
-
-#s <- stackOpen("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/EVIstack.stk")
+#zonal.stats() based results (why do they differ?)
+# zonalstats2 <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_mean_2.csv", header=T)
+# 
+# library(tidyr)
+# zosta2 <- zonalstats2 %>%
+#   gather(key=filename, value= EVI_mean, -X) #X = 286 sd_areas/LC
+# 
+# #data wrangling, extract date from filename
+# split_zosta = strsplit(zosta2$filename, split="_", fixed=TRUE)
+# split_z = unlist(lapply(split_zosta, "[[", 4))
+# zosta2$date <- lubridate::ymd(basename(split_z))
+# 
+# #plot
+# library(ggplot2)
+# zosta2 %>%
+#   na.omit() %>%
+#   filter(X == 1) %>%
+#   ggplot(aes(x=date, y=EVI_mean)) + geom_point()
+#or terra:extract()
 
 
