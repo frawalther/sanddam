@@ -162,27 +162,40 @@ zosta1$date <- lubridate::ymd(basename(split_z))
 library(ggplot2)
 zosta1 %>%
   na.omit() %>%
-  filter(X == 1) %>%
+#  filter(X == 1) %>%
   ggplot(aes(x=date, y=EVI_mean)) + geom_point()
 
 #zonal.stats() based results (why do they differ?)
-# zonalstats2 <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_mean_2.csv", header=T)
-# 
-# library(tidyr)
-# zosta2 <- zonalstats2 %>%
-#   gather(key=filename, value= EVI_mean, -X) #X = 286 sd_areas/LC
-# 
-# #data wrangling, extract date from filename
-# split_zosta = strsplit(zosta2$filename, split="_", fixed=TRUE)
-# split_z = unlist(lapply(split_zosta, "[[", 4))
-# zosta2$date <- lubridate::ymd(basename(split_z))
-# 
-# #plot
-# library(ggplot2)
-# zosta2 %>%
-#   na.omit() %>%
-#   filter(X == 1) %>%
-#   ggplot(aes(x=date, y=EVI_mean)) + geom_point()
+zonalstats2 <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_mean_2.csv", header=T)
+
+library(tidyr)
+zosta2 <- zonalstats2 %>%
+  gather(key=filename, value= EVI_mean, -X) #X = 286 sd_areas/LC
+
+#data wrangling, extract date from filename
+split_zosta = strsplit(zosta2$filename, split="_", fixed=TRUE)
+split_z = unlist(lapply(split_zosta, "[[", 4))
+zosta2$date <- lubridate::ymd(basename(split_z))
+
+#plot
+library(ggplot2)
+zosta2 %>%
+  na.omit() %>%
+  filter(date == "2015-04-28") %>%
+  ggplot(aes(x=date, y=EVI_mean)) + geom_point()
 #or terra:extract()
 
 
+zosta1[which.min(zosta1$EVI_mean),]
+zosta1[which.max(zosta1$EVI_mean),] #15067 -> how is this possible??? 
+#all too high measures from a specific date: 2015-04-28 
+#should delete only >10000 or all from that specific date? 
+
+df_EVI <- zosta1 %>%
+  na.omit() %>%
+  filter(date != "2015-04-28")
+#  ggplot(aes(x=date, y=EVI_mean)) + geom_point()
+
+
+nrow(zosta1)
+nrow(df_EVI)
