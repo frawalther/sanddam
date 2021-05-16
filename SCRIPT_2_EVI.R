@@ -11,6 +11,7 @@ library(fasterize)
 library(exactextractr)
 library(tidyr)
 library(ggplot2)
+library(dplyr)
 
 #https://philipperufin.github.io/gcg_eo/#session-03-vegetation-indices-data-transforms
 #evi <- 2.5 * ((nIR – red) / (nIR + 6 * red – 7.5 * blue + 10000))
