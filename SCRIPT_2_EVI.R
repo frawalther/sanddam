@@ -8,6 +8,9 @@ library(lubridate)
 library(sf)
 library(fasterize)
 
+library(exactextractr)
+library(tidyr)
+library(ggplot2)
 
 #https://philipperufin.github.io/gcg_eo/#session-03-vegetation-indices-data-transforms
 #evi <- 2.5 * ((nIR – red) / (nIR + 6 * red – 7.5 * blue + 10000))
@@ -110,10 +113,9 @@ EVI_stack <- raster::stack(Rasmo_files)
 
 
 # Load in pre-processed LAND COVER dataset/shapefile
-
 lc_int <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int')
 lc_int <- cbind(rn = rownames(lc_int), lc_int)
-library(exactextractr)
+
 EVI_mean <-exactextractr::exact_extract(EVI_stack, lc_int, "mean")
 #faster than extract() 
 #more acurate than zonal(): https://isciences.gitlab.io/exactextractr/
@@ -123,79 +125,114 @@ EVI_mean <-exactextractr::exact_extract(EVI_stack, lc_int, "mean")
 #   When they occur in the weighting raster, they cause the result of the summary operation to be NA
 
 write.csv(EVI_mean, "EVI_mean_1.csv")
-#alternative zonal.stats() - dont knwo how to manually set mean, na.rm=T -> but does it base on exact_extract()?
 
-#start 18:10 (exactextractr::exact_extract())
-#end next day 10:50 ~17h
+                #alternative zonal.stats() - dont know how to manually set mean, na.rm=T -> but does it base on exact_extract()?
+                
+                #start 18:10 (exactextractr::exact_extract())
+                #end next day 10:50 ~17h
+                
+                #zonalstats()
+                #install.packages("spatialEco") # my Rversion is too old
+                #remotes::install_github("jeffreyevans/spatialEco")
+                #install.packages("exactextractr")
+                library(spatialEco)
+                #library(exactextractr)
+                EVI_mean_zs <- zonal.stats(x=lc_int, y=EVI_stack, stats = "mean")
+                write.csv(EVI_mean_zs, "EVI_mean_2.csv")
+                #beginn 11:00
+                #end next day 17:30 ~30h
+                
+                #compare! how?
 
-#zonalstats()
-#install.packages("spatialEco") # my Rversion is too old
-#remotes::install_github("jeffreyevans/spatialEco")
-#install.packages("exactextractr")
-library(spatialEco)
-#library(exactextractr)
-EVI_mean_zs <- zonal.stats(x=lc_int, y=EVI_stack, stats = "mean")
-write.csv(EVI_mean_zs, "EVI_mean_2.csv")
-#beginn 11:00
-#end next day 17:30 ~30h
-
-#####################UNTIL HERE #######################
-
-#compare!
+#calculate standard deviation (still needs to run)
+system.time({ EVI_sd <-exactextractr::exact_extract(EVI_stack, lc_int, "stdev") })
+write.csv(EVI_sd, "EVI_sd.csv")
 
 
-
-#make a neat dataframe
-
-zonalstats1 <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_mean_1.csv", header=T)
-
-library(tidyr)
-zosta1 <- zonalstats1 %>%
+#Data wrangling: Dataframe/ data.table
+EVI_mean <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_mean_1.csv", header=T)
+zosta <- EVI_mean %>%
   gather(key=filename, value= EVI_mean, -X) #X = 286 sd_areas/LC
 
-#data wrangling, extract date from filename
-split_zosta = strsplit(zosta1$filename, split="_", fixed=TRUE)
+#extract date from filename
+split_zosta = strsplit(zosta$filename, split="_", fixed=TRUE)
 split_z = unlist(lapply(split_zosta, "[[", 4))
-zosta1$date <- lubridate::ymd(basename(split_z))
+zosta$date <- lubridate::ymd(basename(split_z))
 
 #plot
-library(ggplot2)
-zosta1 %>%
+zosta %>%
   na.omit() %>%
-#  filter(X == 1) %>%
+  #  filter(X == 1) %>%
   ggplot(aes(x=date, y=EVI_mean)) + geom_point()
 
-#zonal.stats() based results (why do they differ?)
-zonalstats2 <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_mean_2.csv", header=T)
-
-library(tidyr)
-zosta2 <- zonalstats2 %>%
-  gather(key=filename, value= EVI_mean, -X) #X = 286 sd_areas/LC
-
-#data wrangling, extract date from filename
-split_zosta = strsplit(zosta2$filename, split="_", fixed=TRUE)
-split_z = unlist(lapply(split_zosta, "[[", 4))
-zosta2$date <- lubridate::ymd(basename(split_z))
-
-#plot
-library(ggplot2)
-zosta2 %>%
-  na.omit() %>%
-  filter(date == "2015-04-28") %>%
-  ggplot(aes(x=date, y=EVI_mean)) + geom_point()
-#or terra:extract()
-
-
-zosta1[which.min(zosta1$EVI_mean),]
-zosta1[which.max(zosta1$EVI_mean),] #15067 -> how is this possible??? 
+zosta[which.max(zosta$EVI_mean),]
+#15067 -> how is this possible? [cloud mask error]
 #all too high measures from a specific date: 2015-04-28 
-#should delete only >10000 or all from that specific date? 
+#should I delete only >10000 or all from that specific date? 
 
-df_EVI <- zosta1 %>%
+df_EVI <- zosta %>%
   na.omit() %>%
-  filter(date != "2015-04-28")
-#  ggplot(aes(x=date, y=EVI_mean)) + geom_point()
+  filter(date != "2015-04-28") 
+
+df_EVI %>%
+  ggplot(aes(x=date, y=EVI_mean)) + geom_point()
+
+df_EVI$type <- "EVI"
 
 
-nrow(zosta1)
-nrow(df_EVI)
+EVI_sd <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/EVI_sd.csv", header=T)
+evi_sd <- EVI_sd %>%
+  gather(key=filename, value= EVI_sd, -X) #X = 286 sd_areas/LC
+
+#extract date from filename
+split_zosta = strsplit(evi_sd$filename, split="_", fixed=TRUE)
+split_z = unlist(lapply(split_zosta, "[[", 4))
+evi_sd$date <- lubridate::ymd(basename(split_z))
+
+evi_sd %>%
+  na.omit() %>%
+  #  filter(X == 1) %>%
+  ggplot(aes(x=date, y=EVI_sd)) + geom_point()
+
+
+df_EVI_c <- merge(df_EVI, evi_sd, by=c("X", "date"))
+
+df_EVI_c %>%
+  #  na.omit() %>%
+  #  filter(X == 1) %>%
+  ggplot(aes(x=date, y=EVI_sd)) + geom_point()
+
+write.csv(df_EVI_c, "df_EVI.csv")
+
+df_EVI_c %>%
+  filter(X==100) %>%
+  ggplot(aes(x=date, y=EVI_mean, colour=X)) + 
+  geom_errorbar(aes(ymin=EVI_mean-EVI_sd, ymax=EVI_mean+EVI_sd), width=.1, color="black") +
+  geom_line() +
+  geom_point() +
+  ylab("EVI")
+
+head(df_EVI_c)
+
+########################################################
+#combine EVI dataset with LC_int data 
+
+df_EVI_c <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/df_EVI.csv", header=T)
+
+# Load in pre-processed land cover dataset/shapefile
+  #SD = sand dam ID (n=135)
+  #LC_proj = land cover class [value]
+  #class = LC class [name]
+lc_int <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int')
+crs(lc_int)
+lc_int <- cbind(rn = rownames(lc_int), lc_int)
+
+sub_lcint <- lc_int %>%
+  select(LC_proj, rn, ID, Point_X, Point_Y, Mnth_Cn, Yer_blt, Mnth_Us, Year_Us, Functin, Site, study, class, area_m2) #caution with area_m2 [CHECK]
+sub_lcint <- sub_lcint %>%
+  rename(X = "rn")
+
+df <- merge(df_EVI_c, sub_lcint, by="X")
+
+write.csv(df, "df_1.csv")
+read.csv("~/01Master/MasterThesis/Pius/R/sand dam/df_1.csv", header=T)
