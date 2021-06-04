@@ -153,7 +153,6 @@ load("df_c.RData")
 
 #DATE
 
-#Year
 class(df_c$Yer_blt) 
 
 df_c$Yer_blt <- as.Date(df_c$Yer_blt, "%Y")
@@ -174,7 +173,7 @@ unique(df_c$date_built) #50
 unique(df_c$date_b) #33
 unique(df_date_built$d_built) #71 (without NAs)
 
-#some results got lost? check again 
+  #some results got lost? check again 
 
 #Presence column
 class(df_c$year_month)
