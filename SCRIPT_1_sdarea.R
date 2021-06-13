@@ -245,6 +245,6 @@ unique(LC_r)
 lc_int <- rbind(crop_int, shrub_int, vega_int)
 
 #calculate area for each sf feature (basis to e.g. calculate overall mean EVI/SD)
-lc_int$area_m2 <- st_area(lc_int) #check again 
+lc_int$area_m2 <- st_area(lc_int) 
 
 st_write(lc_int, dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int', driver="ESRI Shapefile", delete_layer = TRUE) #check again
