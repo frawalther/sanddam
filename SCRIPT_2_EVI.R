@@ -145,7 +145,7 @@ write.csv(EVI_mean, "EVI_mean_1.csv")
                 
                 #compare! how?
 
-#calculate standard deviation (still needs to run)
+#calculate standard deviation
 system.time({ EVI_sd <-exactextractr::exact_extract(EVI_stack, lc_int, "stdev") })
 write.csv(EVI_sd, "EVI_sd.csv")
 
@@ -203,8 +203,6 @@ df_EVI_c %>%
   #  filter(X == 1) %>%
   ggplot(aes(x=date, y=EVI_sd)) + geom_point()
 
-write.csv(df_EVI_c, "df_EVI.csv")
-
 df_EVI_c %>%
   filter(X==100) %>%
   ggplot(aes(x=date, y=EVI_mean, colour=X)) + 
@@ -215,25 +213,12 @@ df_EVI_c %>%
 
 head(df_EVI_c)
 
+#round dates down to months 
+df_EVI_c$date <- as.Date(df_EVI_c$date)
+df_EVI_c$year_month <- floor_date(df_EVI_c$date, "month") #round_date 
+
+write.csv(df_EVI_c, "df_EVI.csv")
 ########################################################
 #combine EVI dataset with LC_int data 
 
 df_EVI_c <- read.csv("~/01Master/MasterThesis/Pius/R/sand dam/df_EVI.csv", header=T)
-
-# Load in pre-processed land cover dataset/shapefile
-  #SD = sand dam ID (n=135)
-  #LC_proj = land cover class [value]
-  #class = LC class [name]
-lc_int <- st_read(dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int')
-crs(lc_int)
-lc_int <- cbind(rn = rownames(lc_int), lc_int)
-
-sub_lcint <- lc_int %>%
-  select(LC_proj, rn, ID, Point_X, Point_Y, Mnth_Cn, Yer_blt, Mnth_Us, Year_Us, Functin, Site, study, class, area_m2) #caution with area_m2 [CHECK]
-sub_lcint <- sub_lcint %>%
-  rename(X = "rn")
-
-df <- merge(df_EVI_c, sub_lcint, by="X")
-
-write.csv(df, "df_1.csv")
-read.csv("~/01Master/MasterThesis/Pius/R/sand dam/df_1.csv", header=T)
