@@ -9,6 +9,7 @@ library(rgeos)
 library(tidyr)
 library(ggplot2)
 library(dplyr)
+library(lubridate)
 
 #load study area
 studyarea <- shapefile("~/01Master/MasterThesis/Pius/climatedata/extent_rough.shp") #rough extent - for crop()
@@ -171,7 +172,7 @@ df_c <- df_c %>%
 
 unique(df_c$date_built) #50
 unique(df_c$date_b) #33
-unique(df_date_built$d_built) #71 (without NAs)
+unique(df_c$d_built) #71 (without NAs)
 
   #some results got lost? check again 
 
@@ -179,10 +180,52 @@ unique(df_date_built$d_built) #71 (without NAs)
 class(df_c$year_month)
 df_c$year_month <- as.Date(df_c$year_month, "%Y-%m-%d")
 
-df_c<- df_c %>%
+df_cc<- df_c %>%
   mutate(presence = if_else(year_month %m+% years(1) >= d_built , 1, 0)) 
 #1 year to fill up sand dam (partially) - can take up to 1-3 years (literature)
 # stay with this decision of 1 year? 
+
+#save 
+save(df_cc, file = "df_cc.RData") #write.csv() takes way more time and space 
+load("df_cc.RData")
+head(df_cc)
+
+# TIME: create column of discrete time steps (earliest date 01/01/2014 = 1)
+df_cc <- df_cc %>%
+  transform(timeorder=as.numeric(factor(year_month)))
+
+class(df_cc$timeorder)
+unique(df_cc$timeorder)
+unique(df_cc$year_month)
+
+min(df_cc$year_month)
+
+# reshape LC_proj
+# [4,2,5] -> [2,1,3] 2=cropland, 1 =shrubs, 3=veg_aqua (wanna exclude 3?)
+df_cc <- df_cc %>%
+  transform(LC_proj=as.numeric(factor(LC_proj)))
+
+#rescale evi values 
+df_cc$EVI_mean <- df_cc$EVI_mean / 10000
+df_cc$EVI_sd <- df_cc$EVI_sd / 10000
+
+
+#boil down dataset to the most important columns as input for the model 
+df_com <- df_cc %>%
+  select(-geometry, -X.2.y, -X.1.y, -X.2.x, -X.1.x, -type.x, -type.y, -filename.x.x, -filename.x.y, -filename.y.x, -filename.y.y)
+
+head(df_com)
+unique(df_com$ID)
+unique(df_com$X)
+
+#save 
+save(df_com, file = "df_com.RData") #write.csv() takes way more time and space 
+load("df_com.RData")
+head(df_com)
+
+
+
+
 
 
 
