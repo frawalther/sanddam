@@ -1,8 +1,11 @@
 data {
   int<lower=1> N;
   vector[N] evi;//EVI, y
-  real P[N]; //Precipitation(mean), predictor x
-  vector [2] t[N];//time order
+  vector[N] P; //Precipitation(mean), predictor x
+  vector[2] t[N];//time order
+
+  // int<lower=1> LC [N];
+  // int n_lc;
 }
 
 transformed data {
@@ -23,9 +26,8 @@ parameters {
  vector [N] eta; 
 }
 
-transformed parameters {
-  vector [N] mu;
-  { //compute variance-covariance matrix
+model { 
+    //compute variance-covariance matrix
     matrix[N,N] K; 
     matrix[N,N] L_K; //cholesky decomposition of VCV matrix (lower triangle)
     vector [N] gamma; //additive effect of GP
@@ -35,19 +37,18 @@ transformed parameters {
     //diagonal elements
     for (i in 1:N)
     K[i,i] = K[i,i] + delta;
-    
     L_K = cholesky_decompose(K);
     gamma = L_K * eta;
-    mu = inv_logit(gamma + a + P * b);
-  }
-}
-model {    
+    vector[N] mu = rep_vector(0, N);
+    mu = inv_logit(gamma + a + b * P); //error
+
     rho ~ inv_gamma(5,5);
     alpha~ std_normal();
     eta ~std_normal();
-    a ~ normal(0,10)
-    b ~ normal(0,10)
-    
+    a ~ normal(0,10);
+    b ~ normal(0,10);
+
     evi ~ multi_normal_cholesky(mu,L_K);
+
 }
 
