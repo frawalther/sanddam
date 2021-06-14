@@ -2,19 +2,20 @@ data {
   int<lower=1> N;
   vector[N] evi;//EVI, y
   real P[N]; //Precipitation(mean), predictor x
-
+  //time order ? 
 }
 
 transformed data {
-  vector[N] mu = rep_vector(0,N);
+  vector[N] mu;      //mean function (vector of 0s)
+  mu = rep_vector(0, N);
 
 }
 
 parameters {
   real <lower=0> alpha; //cov kernel parameter , not intercept
-  real <lower=0> rho; //
+  real <lower=0> rho; //length scale 
 
-  real<lower=0> sigma;
+  real<lower=0> sigma; //noise standard deviation 
 }
 
 model {
