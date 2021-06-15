@@ -1,8 +1,9 @@
+//marginal likelihood GP 
 data {
   int<lower=1> N;
   vector[N] evi;//EVI, y
   real P[N]; //Precipitation(mean), predictor x
-  vector [2] t[N];//time order ? 
+  vector<lower=1> [2] t [N]; //time order
 }
 
 transformed data {
