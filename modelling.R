@@ -15,34 +15,16 @@ library(ggplot2)
 load("df_com.RData")
 head(df_com)
 
-#autoregressive model
-#Stan AR(1)
-#m1_AR
-n <- nrow(df_com)
-#or: 
-# unique(df_com$X)
-# n <- 286 #dont think so 
-
-fit_AR1 <- stan(file="m1_AR.stan", 
-                data = list(N = n,
-                            y = df_com$EVI_mean),
-                chains=4, 
-                cores=4,
-                iter=2000)
-summary(fit_AR1)
-posterior1 <- as.matrix(fit_AR1)
-head(posterior1)
-
-
 #Gaussian process:
 # marginal likelihood GP 
 n <- nrow(df_com)
+#t = df_com$timeorder
 fit_GP1 <- stan(file="GP_1.stan",
                 data = list(N = n,
                             evi = df_com$EVI_mean,
-                            P = df_com$Precip_mean, 
-                            t = df_com$timeorder),
-                chains=4, 
+                            P = df_com$Precip_mean),
+                            #t = df_com$timeorder),
+                chains=1, 
                 cores=4,
                 iter=2000)
 
@@ -55,11 +37,31 @@ fit_GP2 <- stan(file="GP_2.stan",
                 data = list(N=n,
                             evi = df_com$EVI_mean,
                             P = df_com$Precip_mean,
-                            t = df_com$timeorder),
-                chains=4, 
+                            t= df_com$timeorder),
+                chains=1, 
                 cores=4,
                 iter=2000)
 
+
+### TRASH ####
+# #autoregressive model
+# #Stan AR(1)
+# #m1_AR
+# n <- nrow(df_com)
+# #or: 
+# # unique(df_com$X)
+# # n <- 286 #dont think so 
+# 
+# fit_AR1 <- stan(file="m1_AR.stan", 
+#                 data = list(N = n,
+#                             y = df_com$EVI_mean),
+#                 chains=4, 
+#                 cores=4,
+#                 iter=2000)
+# summary(fit_AR1)
+# posterior1 <- as.matrix(fit_AR1)
+# head(posterior1)
+# 
 
 # 
 # #m2_AR

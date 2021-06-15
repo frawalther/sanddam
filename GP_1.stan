@@ -1,27 +1,26 @@
 //marginal likelihood GP 
 data {
   int<lower=1> N;
-  vector[N] evi;//EVI, y
-  real P[N]; //Precipitation(mean), predictor x
-  vector<lower=1> [2] t [N]; //time order
+  real x[N]; //Precipitation(mean), predictor x
+  vector<lower=-1, upper=1> [N] evi;//EVI, y
+  //vector<lower=1>[N] t; //time order
+  //real t[N];
 }
 
 transformed data {
-  vector[N] mu;      //mean function (vector of 0s)
-  mu = rep_vector(0, N);
+  vector[N] mu = rep_vector(0, N);    //mean function (vector of 0s)
 
 }
 
 parameters {
-  real <lower=0> alpha; //cov kernel parameter , not intercept
   real <lower=0> rho; //length scale 
-
-  real<lower=0> sigma; //noise standard deviation 
+  real <lower=0> alpha; //cov kernel parameter , not intercept
+  real <lower=0> sigma; //noise standard deviation 
 }
 
 model {
     matrix[N,N] L_K; //cholesky decomposition of VCV matrix (lower triangle)
-    matrix[N,N] K = cov_exp_quad(t, alpha, rho); //var-cov matrix
+    matrix[N,N] K = cov_exp_quad(x, alpha, rho); //var-cov matrix
     real sq_sigma = square(sigma);
     
     //diagonal elements
@@ -33,7 +32,7 @@ model {
     rho ~ inv_gamma(5,5);
     alpha~ std_normal();
     sigma ~std_normal();
-    
+
     evi ~ multi_normal_cholesky(mu,L_K);
     
 }

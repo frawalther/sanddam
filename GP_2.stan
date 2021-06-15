@@ -1,13 +1,12 @@
 // latent variable GP 
 data {
-  int<lower=1> N; //X?
-  vector<lower=1> [2] t [N];
-  //int<lower=1> t [N]; //time order 
+  int<lower=1> N; //nrows(df)
   vector<lower = -1, upper = 1>[N] evi;//EVI, y [N] or [t] ? 
   vector[N] P; //Precipitation(mean), predictor x
-  //  vector[2] t[N];//time order
+  vector[N] t;//time order
   // int<lower=1> LC [N];
   // int n_lc;
+  //matrix [N,k] x;
 
 }
 
@@ -17,9 +16,9 @@ transformed data {
 
 parameters {
   //hyperparameters
-  real <lower=0> alpha; //cov kernel parameter , not intercept
   real <lower=0> rho; //length scale 
-  
+  real <lower=0> alpha; //cov kernel parameter , not intercept
+
   //regression parameters
   real a; //intercept
   real b; // slope 
@@ -28,22 +27,23 @@ parameters {
  vector [N] eta; 
 }
 
-transformed parameters{
-  vector [N] mu = rep_vector(0, N);
+transformed parameters {
+  vector [N] mu;
   {    
     //compute variance-covariance matrix
     matrix[N,N] K; 
     matrix[N,N] L_K; //cholesky decomposition of VCV matrix (lower triangle)
-    vector [N] gamma; //additive effect of GP
-    
-    K = cov_exp_quad(evi[t], alpha, rho); //var-cov matrix
+
+    K = cov_exp_quad(t, alpha, rho) ; //var-cov matrix //error!
     
     //diagonal elements
     for (i in 1:N)
     K[i,i] = K[i,i] + delta;
     L_K = cholesky_decompose(K);
+    
+    vector [N] gamma; //additive effect of GP
     gamma = L_K * eta;
-    mu = inv_logit(gamma + a + b * P); //error
+    mu = gamma + a + b * P; //error!  
   }
 }
 
