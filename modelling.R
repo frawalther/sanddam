@@ -1,15 +1,16 @@
+#packages
+library(rstan)
 
 #packages of interest 
-library(rstan)
 library(bayesplot)
 library(loo)
 library(brms)
 library(rtsanarm)
 library(atsar)
-
-#packages
 library(dplyr)
 library(ggplot2)
+
+
 
 #load dataset
 load("df_com.RData")

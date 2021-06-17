@@ -1,10 +1,9 @@
 //marginal likelihood GP 
 data {
   int<lower=1> N;
-  real x[N]; //Precipitation(mean), predictor x
+  real P[N]; //Precipitation(mean), predictor x
   vector<lower=-1, upper=1> [N] evi;//EVI, y
-  //vector<lower=1>[N] t; //time order
-  //real t[N];
+  //int t[N]; //time order 
 }
 
 transformed data {
@@ -20,7 +19,7 @@ parameters {
 
 model {
     matrix[N,N] L_K; //cholesky decomposition of VCV matrix (lower triangle)
-    matrix[N,N] K = cov_exp_quad(x, alpha, rho); //var-cov matrix
+    matrix[N,N] K = cov_exp_quad(P, alpha, rho); //var-cov matrix
     real sq_sigma = square(sigma);
     
     //diagonal elements
