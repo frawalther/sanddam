@@ -3,7 +3,7 @@ data {
   int<lower=1> N; //nrows(df)
   vector<lower = -1, upper = 1>[N] evi;//EVI, y [N] or [t] ? 
   vector[N] P; //Precipitation(mean), predictor x
-  vector[N] t;//time order
+  int<lower=1> t [N];//time order
   // int<lower=1> LC [N];
   // int n_lc;
   //matrix [N,k] x;
@@ -34,7 +34,7 @@ transformed parameters {
     matrix[N,N] K; 
     matrix[N,N] L_K; //cholesky decomposition of VCV matrix (lower triangle)
 
-    K = cov_exp_quad(t, alpha, rho) ; //var-cov matrix //error!
+    K = cov_exp_quad(t, alpha, rho) ; //vcv matrix //error!  correct? 
     
     //diagonal elements
     for (i in 1:N)
