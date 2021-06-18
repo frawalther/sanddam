@@ -2,8 +2,8 @@
 data {
   int<lower=1> N; //nrows(df)
   vector<lower = -1, upper = 1>[N] evi;//EVI, y [N] or [t] ? 
-  vector[N] P; //Precipitation(mean), predictor x
-  int<lower=1> t [N];//time order
+  vector [N] P; //Precipitation(mean)
+  real time [N];//time order
   // int<lower=1> LC [N];
   // int n_lc;
   //matrix [N,k] x;
@@ -18,6 +18,8 @@ parameters {
   //hyperparameters
   real <lower=0> rho; //length scale 
   real <lower=0> alpha; //cov kernel parameter , not intercept
+  real <lower = 0> sigma; //variance
+  real tscale; // time scale parameter; eta assumes time is approx on (0,1) so we rescale
 
   //regression parameters
   real a; //intercept
@@ -31,32 +33,29 @@ transformed parameters {
   vector [N] mu;
   {    
     //compute variance-covariance matrix
-    matrix[N,N] K; 
+    matrix[N,N] K = cov_exp_quad(time, alpha, rho); 
     matrix[N,N] L_K; //cholesky decomposition of VCV matrix (lower triangle)
-
-    K = cov_exp_quad(t, alpha, rho) ; //vcv matrix //error!  correct? 
+    vector [N] gamma; //additive effect of GP
     
     //diagonal elements
     for (i in 1:N)
-    K[i,i] = K[i,i] + delta;
+      K[i,i] = K[i,i] + delta;
     L_K = cholesky_decompose(K);
-    
-    vector [N] gamma; //additive effect of GP
-    gamma = L_K * eta;
-    mu = gamma + a + b * P; //error!  
+    gamma = L_K * eta * tscale;
+    mu = gamma + a + b * P;
   }
 }
 
 model { 
-    matrix[N,N] L_K;
+  matrix[N,N] L_K;
 
-    rho ~ inv_gamma(5,5);
-    alpha~ std_normal();
-    eta ~std_normal();
-    a ~ normal(0,10);
-    b ~ normal(0,10);
+  rho ~ inv_gamma(5,5);
+  alpha~ std_normal();
+  eta ~ std_normal();
+  tscale ~ normal(0, 10);
+  a ~ normal(0,10);
+  b ~ normal(0,10);
 
-    evi ~ multi_normal_cholesky(mu,L_K);
+  evi ~ normal(mu, sigma);
 
 }
-

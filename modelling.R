@@ -1,5 +1,6 @@
 #packages
 library(rstan)
+library(dplyr)
 
 #packages of interest 
 library(bayesplot)
@@ -7,7 +8,7 @@ library(loo)
 library(brms)
 library(rtsanarm)
 library(atsar)
-library(dplyr)
+
 library(ggplot2)
 
 
@@ -15,33 +16,40 @@ library(ggplot2)
 #load dataset
 load("df_com.RData")
 head(df_com)
+nrow(df_com)
+
+#exclude LC "veg_aqua"
+df_par <- df_com %>%
+  filter (class != "veg_aqua")
+nrow(df_par)
 
 #Gaussian process:
-# marginal likelihood GP 
-n <- nrow(df_com)
-#t = df_com$timeorder
-fit_GP1 <- stan(file="GP_1.stan",
-                data = list(N = n,
-                            evi = df_com$EVI_mean,
-                            P = df_com$Precip_mean),
-                            #t = df_com$timeorder),
-                chains=1, 
-                cores=4,
-                iter=2000)
+  # marginal likelihood GP 
+  n <- nrow(df_com)
+  #t = df_com$timeorder
+  fit_GP1 <- stan(file="GP_1.stan",
+                  data = list(N = n,
+                              evi = df_com$EVI_mean,
+                              P = df_com$Precip_mean),
+                              #t = df_com$timeorder),
+                  chains=1, 
+                  cores=4,
+                  iter=2000)
 
-#need to include time stemps - time order where? 
+#need to include time steps - time order where? 
 
 #Latent variable GP 
-n<- nrow(df_com)
+  n<- nrow(df_com)
+   
+  GP2 = stan_model("GP_2.stan")
+  fit_GP2 = sampling(GP2, data = list(N=n,
+                                      evi = df_com$EVI_mean,
+                                      P = df_com$Precip_mean,
+                                      time= df_com$timeorder),
+                     chains=1,
+                     cores=4,
+                     iter=2000)
 
-fit_GP2 <- stan(file="GP_2.stan",
-                data = list(N=n,
-                            evi = df_com$EVI_mean,
-                            P = df_com$Precip_mean,
-                            t= df_com$timeorder),
-                chains=1, 
-                cores=4,
-                iter=2000)
 
 
 ### TRASH ####
