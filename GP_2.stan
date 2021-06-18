@@ -19,7 +19,6 @@ parameters {
   real <lower=0> rho; //length scale 
   real <lower=0> alpha; //cov kernel parameter , not intercept
   real <lower = 0> sigma; //variance
-  real tscale; // time scale parameter; eta assumes time is approx on (0,1) so we rescale
 
   //regression parameters
   real a; //intercept
@@ -41,18 +40,16 @@ transformed parameters {
     for (i in 1:N)
       K[i,i] = K[i,i] + delta;
     L_K = cholesky_decompose(K);
-    gamma = L_K * eta * tscale;
+    gamma = L_K * eta;
     mu = gamma + a + b * P;
   }
 }
 
 model { 
-  matrix[N,N] L_K;
 
   rho ~ inv_gamma(5,5);
   alpha~ std_normal();
   eta ~ std_normal();
-  tscale ~ normal(0, 10);
   a ~ normal(0,10);
   b ~ normal(0,10);
 
