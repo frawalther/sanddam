@@ -12,16 +12,17 @@ library(atsar)
 library(ggplot2)
 
 
-
 #load dataset
 load("df_com.RData")
 head(df_com)
 nrow(df_com)
+unique(df_com$X) #286
 
 #exclude LC "veg_aqua"
 df_par <- df_com %>%
   filter (class != "veg_aqua")
 nrow(df_par)
+unique(df_par$X) #269
 
 #Gaussian process:
   # marginal likelihood GP 
@@ -39,13 +40,13 @@ nrow(df_par)
 #need to include time steps - time order where? 
 
 #Latent variable GP 
-  n<- nrow(df_com)
+  n<- nrow(df_par)
    
   GP2 = stan_model("GP_2.stan")
   fit_GP2 = sampling(GP2, data = list(N=n,
-                                      evi = df_com$EVI_mean,
-                                      P = df_com$Precip_mean,
-                                      time= df_com$timeorder),
+                                      evi = df_par$EVI_mean,
+                                      P = df_par$Precip_mean,
+                                      time= df_par$timeorder),
                      chains=1,
                      cores=4,
                      iter=2000)
