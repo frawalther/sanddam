@@ -34,14 +34,14 @@ fit_GP1 <- stan(file="GP_1.stan",
 #Latent variable GP 
 n<- nrow(df_com)
 
-fit_GP2 <- stan(file="GP_2.stan",
-                data = list(N=n,
-                            evi = df_com$EVI_mean,
-                            P = df_com$Precip_mean,
-                            t= df_com$timeorder),
-                chains=1, 
-                cores=4,
-                iter=2000)
+GP2 = stan_model("GP_2.stan")
+fit_GP2 = sampling(GP2, data = list(N=n,
+                    evi = df_com$EVI_mean,
+                    P = df_com$Precip_mean,
+                    time= df_com$timeorder),
+                    chains=1, 
+                    cores=4,
+                    iter=2000)
 
 
 ### TRASH ####
