@@ -21,6 +21,8 @@ unique(df_com$X) #286
 #exclude LC "veg_aqua"
 df_par <- df_com %>%
   filter (class != "veg_aqua")
+df_par = subset(df_com, class != "veg_aqua") ## Matt doesn't have dplyr :-P
+
 nrow(df_par)
 unique(df_par$X) #269
 
@@ -40,13 +42,23 @@ unique(df_par$X) #269
 #need to include time steps - time order where? 
 
 #Latent variable GP 
-  n<- nrow(df_par)
-   
+# add something to ID individual time series
+df_par$gp_id = paste(df_par$X, df_par$class, sep="_")
+
+# try a subset of data first
+standat = with(df_par[df_par$X <= 3,], list(
+    evi = EVI_mean,
+    P = Precip_mean,
+    time = timeorder,
+    gp_id = as.integer(factor(gp_id))
+))
+standat$gp_sampsize = table(standat$gp_id)
+standat$max_gp_sampsize = max(standat$gp_sampsize)
+standat$ngp = max(standat$gp_id)
+standat$N = length(standat$evi)
+
   GP2 = stan_model("GP_2.stan")
-  fit_GP2 = sampling(GP2, data = list(N=n,
-                                      evi = df_par$EVI_mean,
-                                      P = df_par$Precip_mean,
-                                      time= df_par$timeorder),
+  fit_GP2 = sampling(GP2, data = standat,
                      chains=1,
                      cores=4,
                      iter=2000)
