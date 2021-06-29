@@ -12,7 +12,6 @@ data {
   int<lower=1, upper = ngp> gp_id [N]; //sampling unit ID, allowing for one GP per 
   int gp_sampsize [ngp]; //for each GP, how many data points are represented 
   int<lower=1, upper=N> max_gp_sampsize; // how many samples in the largest covariance kernel
-
 }
 
 transformed data {
@@ -70,19 +69,21 @@ transformed parameters {
       for (j in 1:ss) {
         K[j,j] = K[j,j] + delta;
         et_gp[j] = eta[gp_index[i,j]];
-    }
+        }
    
     L_K = cholesky_decompose(K);
     gam_gp = L_K * et_gp;
     for (j in 1:ss) {
     gamma[gp_index[i,j]] = gam_gp[j];
     }
-    
+
     // add GP effect to the linear model
     mu = gamma + a + b1 * P;
   }
+  } //right place? for(i in 1:ngp)
 }
-}
+ 
+
 
 model { 
 
@@ -93,5 +94,4 @@ model {
   b1 ~ normal(0,10);
 
   evi ~ normal(mu, sigma);
-
 }
