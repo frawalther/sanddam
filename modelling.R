@@ -22,19 +22,19 @@ unique(df_com$X) #286
 df_par <- df_com %>%
   filter (class != "veg_aqua")
 
-#cropland
-df_crop <- df_com %>%
-  filter (class == "cropland")
-
-nrow(df_crop) #n=34314
-unique(df_crop$X) #n=135
-
-#shrubs
-df_shrubs <- df_com %>%
-  filter (class == "shrubs")
-
-nrow(df_shrubs) #n=31253
-unique(df_shrubs$X) #n=134
+    # #cropland
+    # df_crop <- df_com %>%
+    #   filter (class == "cropland")
+    # 
+    # nrow(df_crop) #n=34314
+    # unique(df_crop$X) #n=135
+    # 
+    # #shrubs
+    # df_shrubs <- df_com %>%
+    #   filter (class == "shrubs")
+    # 
+    # nrow(df_shrubs) #n=31253
+    # unique(df_shrubs$X) #n=134
 
 
 #Gaussian process:

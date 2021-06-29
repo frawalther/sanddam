@@ -7,8 +7,7 @@ data {
   
   // int<lower=1> LC [N];
   // int n_lc;
-  //matrix [N,k] x;
-  
+
   int<lower=1> ngp; //Number of GPs to fit 
   int<lower=1, upper = ngp> gp_id [N]; //sampling unit ID, allowing for one GP per 
   int gp_sampsize [ngp]; //for each GP, how many data points are represented 
@@ -45,7 +44,8 @@ parameters {
 
   //regression parameters
   real a; //intercept
-  real b; // slope 
+  real b1; // slope predictor 1
+  //real b2; //slope predictor 2
 
   // scaled latent GP effect 
  vector [N] eta; 
@@ -67,7 +67,7 @@ transformed parameters {
 
       //diagonals
       // find the right values for eta 
-      for (j in 1:ss)
+      for (j in 1:ss) {
         K[j,j] = K[j,j] + delta;
         et_gp[j] = eta[gp_index[i,j]];
     }
@@ -79,8 +79,9 @@ transformed parameters {
     }
     
     // add GP effect to the linear model
-    mu = gamma + a + b * P;
+    mu = gamma + a + b1 * P;
   }
+}
 }
 
 model { 
@@ -89,7 +90,7 @@ model {
   alpha~ std_normal();
   eta ~ std_normal();
   a ~ normal(0,10);
-  b ~ normal(0,10);
+  b1 ~ normal(0,10);
 
   evi ~ normal(mu, sigma);
 
