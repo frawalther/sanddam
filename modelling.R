@@ -59,6 +59,10 @@ standat$ngp = max(standat$gp_id)
 standat$N = length(standat$evi)
 
 GP2 = stan_model("GP_2.stan")
+    # Warning message:
+    #   In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :
+    #   '-E' not found
+    #"This warning can safely be ignored and will be removed in the next release."
 fit_GP2 = sampling (GP2, data=standat, 
                     chains=1,
                     cores=4, 
@@ -87,20 +91,30 @@ head(df_1)
 
   #need to repeat that for all Sds/X
 
-summary(fit_GP1)
+summary(fit_GP1)$summary %>% head()
+glimpse(fit_GP1)
 
-#   glimpse(fit_GP1)
-#   #Rhat
-#     rhat_GP1 <- rhat(fit_GP1)
-#     mcmc_rhat_hist(rhat_GP1)
-#   #Neff
-#     ratios_GP1 <- neff_ratio(fit_GP1)
-#     mcmc_neff(ratios_GP1)
-#   #traceplot
-#     traceplot(fit_GP1, pars= c("rho", "alpha", "sigma", "a", "b")) #Which parameter are of interest?
-#     #or
-#     mcmc_trace(fit_GP1, pars= c("rho", "alpha", "sigma", "a", "b")) #Which parameter are of interest?
-# 
+plot(fit_GP1)
+
+  #Rhat
+    rhat_GP1 <- rhat(fit_GP1)
+    mcmc_rhat_hist(rhat_GP1)
+  #Neff
+    ratios_GP1 <- neff_ratio(fit_GP1)
+    mcmc_neff(ratios_GP1)
+  #traceplot
+    traceplot(fit_GP1, pars= c("rho", "alpha", "sigma", "a", "b1")) #Which parameter are of interest?
+    #or
+    mcmc_trace(fit_GP1, pars= c("rho", "alpha", "sigma", "a", "b1")) #Which parameter are of interest?
+
+  
+#posterior predictive checks
+list_of_draws <- extract(fit_GP1)
+print(names(list_of_draws))  
+    
+matrix_of_draws<- as.matrix(fit_GP1)
+print(colnames(matrix_of_draws)) 
+print(dim(matrix_of_draws))
 #   #posterior predictive checks: WHICH FUNCTION?
 #     posterior_samples()
 #     posterior_predict()
@@ -114,7 +128,7 @@ summary(fit_GP1)
 #   ?posterior_predict(posterior )
 #   ?sampling()
 #   pp_check(fit_GP1, nsamples = 100, type = "hist")
-#   bayesplot::pp_check(fit_GP1, plotfun="dens_overlay", nreps=100)
+   bayesplot::pp_check(fit_GP1, fun="dens_overlay", nreps = 100)
 #   #bayesplot() package
 #   #Extract posterior draws from stanfit object
 #   GP1_draws <- extract(fit_GP1)
@@ -151,3 +165,13 @@ summary(fit_GP1)
 #   posterior_GP2 <- as.matrix(fit_GP2)
 #   head(posterior_GP2)
 #   
+   
+#brms GP model 
+   #subset
+dat <- df_par[1:100,] %>%
+  filter(class=="cropland")
+
+fit_b <- brm(EVI_mean ~ gp(timeorder, by=ID), dat, chains=1)
+# Warning messages:
+#   In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :
+#   '-E' not found
