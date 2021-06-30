@@ -9,7 +9,8 @@ data {
 }
 
 transformed data {
-real delta = 1e-9;  
+//real delta = 1e-9;  
+vector[N] jitter = rep_vector(1e-9, N);
 }
 
 parameters {
@@ -30,23 +31,23 @@ transformed parameters {
   {    
     //compute variance-covariance matrix
     matrix[N,N] K = cov_exp_quad(time, alpha, rho); 
-    matrix[N,N] L_K; //cholesky decomposition of VCV matrix (lower triangle)
-    vector[N] gamma; //additive effect of GP
+    matrix[N,N] L_K = cholesky_decompose(add_diag(K, jitter)); //cholesky decomposition of VCV matrix (lower triangle)
+    vector[N] gamma = L_K * eta; //additive effect of GP
     
-    //diagonal elements
-    for (i in 1:N) { 
-      K[i,i] = K[i,i] + delta;
-    L_K = cholesky_decompose(K); 
-    gamma = L_K * eta;
+    // //diagonal elements
+    // for (i in 1:N) { 
+    //   K[i,i] = K[i,i] + delta;
+    // L_K = cholesky_decompose(K); 
+    // gamma = L_K * eta;
     mu = gamma + a + b1 * P; // + b2 * LC
-    }
+    //}
   }
 }
 
 model {
   rho ~ inv_gamma(5,5);
-  alpha~ std_normal();
-  eta~std_normal();
+  alpha ~ std_normal();
+  eta ~ std_normal();
   a ~ normal(0,10);
   b1 ~ normal(0,10);
   //b2 ~ normal(0,10);
