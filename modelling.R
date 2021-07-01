@@ -46,7 +46,7 @@ df_par <- df_com %>%
 df_par$gp_id = paste(df_par$X, df_par$class, sep="_")
 
 #try a subset of data first
-standat = with(df_par[df_par$X <= 3,], list(
+standat = with(df_par[df_par$X <= 1,], list(
   evi = EVI_mean,
   P = Precip_mean,
   time = timeorder,
@@ -63,10 +63,10 @@ GP2 = stan_model("GP_2.stan")
     #   In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :
     #   '-E' not found
     #"This warning can safely be ignored and will be removed in the next release."
-fit_GP2 = sampling (GP2, data=standat, 
+fit_GP2 = sampling(GP2, data=standat, 
                     chains=1,
                     cores=4, 
-                    iter=2000)
+                    iter=1100, warmup = 1000)
 summary(fit_GP2)
 
 head(df_1)
