@@ -68,7 +68,7 @@ transformed parameters {
       // find the right values for eta 
       for (j in 1:ss) {
         K[j,j] = K[j,j] + delta;
-        et_gp[j] = eta[gp_index[i,j]];
+        et_gp[j] = eta[gp_index[i,j]]; //ERROR 
         }
    
     L_K = cholesky_decompose(K);
