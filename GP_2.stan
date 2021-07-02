@@ -52,8 +52,8 @@ transformed data {
 
 parameters {
   //hyperparameters
-  real <lower=0> rho; //length scale 
-  real <lower=0> alpha; //cov kernel parameter , not intercept
+  vector <lower=0> [ngp] rho; //length scale 
+  vector <lower=0> [ngp] alpha; //cov kernel parameter , not intercept
   real <lower = 0> sigma; //variance
 
   //regression parameters
@@ -76,7 +76,7 @@ transformed parameters {
       vector [ss] gam_gp; //local copy of gamma for just this GP
       
           //compute variance-covariance matrix
-      matrix[ss,ss] K = cov_exp_quad(gp_time[i, 1:ss], alpha, rho); 
+      matrix[ss,ss] K = cov_exp_quad(gp_time[i, 1:ss], alpha[i], rho[i]); 
       matrix[ss,ss] L_K; //cholesky decomposition of VCV matrix (lower triangle)
 
       //diagonals
@@ -105,6 +105,7 @@ model {
   rho ~ inv_gamma(5,5);
   alpha ~ std_normal();
   eta ~ std_normal();
+  sigma ~ cauchy(0, 10);
   a ~ normal(0,10);
   b1 ~ normal(0,10);
 
