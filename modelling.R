@@ -22,72 +22,76 @@ unique(df_com$X) #286
 df_par <- df_com %>%
   filter (class != "veg_aqua")
 
-    # #cropland
-    # df_crop <- df_com %>%
-    #   filter (class == "cropland")
-    # 
-    # nrow(df_crop) #n=34314
-    # unique(df_crop$X) #n=135
-    # 
-    # #shrubs
-    # df_shrubs <- df_com %>%
-    #   filter (class == "shrubs")
-    # 
-    # nrow(df_shrubs) #n=31253
-    # unique(df_shrubs$X) #n=134
+df_uno <- df_par %>%
+  filter ( X <= "1")
 
+#extract only specific months/aggregate over period
+library(lubridate)
+df_uno$year_month
+df_com$
+  
+#Gaussian process
 
-#Gaussian process:
-
-#Matts
 
 #Latent variable GP
 #add something to ID individual time series 
-df_par$gp_id = paste(df_par$X, df_par$class, sep="_")
+df_par$gp_id <- paste(df_par$X, df_par$class, sep="_")
 
 #try a subset of data first
-standat = with(df_par[df_par$X <= 1,], list(
+standat = with(df_par[df_par$X <= 3,], list(
   evi = EVI_mean,
   P = Precip_mean,
   time = timeorder,
   gp_id = as.integer(factor(gp_id))
 ))
 
-standat$gp_sampsize = table(standat$gp_id)
-standat$max_gp_sampsize = max(standat$gp_sampsize)
-standat$ngp = max(standat$gp_id)
-standat$N = length(standat$evi)
 
 GP2 = stan_model("GP_2.stan")
     # Warning message:
     #   In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :
     #   '-E' not found
-    #"This warning can safely be ignored and will be removed in the next release."
-fit_GP2 = sampling(GP2, data=standat, 
+#"This warning can safely be ignored and will be removed in the next release."
+fit_GP2 = sampling (GP2, data=standat, 
                     chains=1,
                     cores=4, 
                     iter=1100, warmup = 1000)
+
+
 summary(fit_GP2)
+matrix_GP2<- as.matrix(fit_GP2)
+print(colnames(matrix_GP2)) 
+print(dim(matrix_GP2))
 
 head(df_1)
 ### for 1 SD 
   df_1 <- df_par %>%
-    filter(ID == 1) #%>%
+    filter( X == 1) %>%
     filter(class == "cropland")
 
-
-      #or X ==1 
   n <- nrow(df_1)
   #t = df_com$timeorder
-  fit_GP1 <- stan(file="GP_1.stan",
-                  data = list(N = n,
-                              evi = df_1$EVI_mean,
-                              P = df_1$Precip_mean,
-                              time = df_1$timeorder), 
-                              #LC = df_1$LC_proj),
-                  chains=1, 
-                  cores=4,
-                  iter=2000)
+  
+  GP1 = stan_model("GP_1.stan")
+
+  fit_GP1 = sampling (GP1, data=list(N = n,
+                                     evi = df_1$EVI_mean,
+                                     P = df_1$Precip_mean,
+                                     time = df_1$timeorder), 
+                      chains=1,
+                      cores=7, 
+                      iter=1100, warmup = 1000)
+
+  
+  # different code writing
+  # fit_GP1 <- stan(file="GP_1.stan",
+  #                 data = list(N = n,
+  #                             evi = df_1$EVI_mean,
+  #                             P = df_1$Precip_mean,
+  #                             time = df_1$timeorder), 
+  #                             #LC = df_1$LC_proj),
+  #                 chains=1, 
+  #                 cores=4,
+  #                 iter=2000)
 
   #need to repeat that for all Sds/X
 
@@ -165,13 +169,25 @@ print(dim(matrix_of_draws))
 #   posterior_GP2 <- as.matrix(fit_GP2)
 #   head(posterior_GP2)
 #   
-   
+
+# BRMS   
 #brms GP model 
    #subset
-dat <- df_par[1:100,] %>%
-  filter(class=="cropland")
+dat <- df_par %>%
+  filter(X == 3)
 
-fit_b <- brm(EVI_mean ~ gp(timeorder, by=ID), dat, chains=1)
-# Warning messages:
-#   In system(paste(CXX, ARGS), ignore.stdout = TRUE, ignore.stderr = TRUE) :
-#   '-E' not found
+fit_b <- brm(data= dat, 
+             family = gaussian, 
+             EVI_mean ~ 1 + gp(timeorder) + Precip_mean,
+             prior = c(prior(normal(0,19), class = Intercept),
+                       prior(normal(0,1), class = b),
+                       prior(cauchy(0,1), class = sdgp)),
+             chains=1,
+             cores=7, 
+             warmup = 1000,
+             iter=1100,
+             seed=13,
+             control = list(adapt_delta = 0.999,
+                            max_treedepth = 12))
+
+
