@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 load("~/01Master/MasterThesis/Pius/R/sand dam/df_com.RData")
 
 library(dplyr)
