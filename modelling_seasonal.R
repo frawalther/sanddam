@@ -49,6 +49,8 @@ df_s <- distinct(df_s)
 head(df_s)
 nrow(df_s)
 
+
+
     # #old way of determining timeorder
     # split_dfs = strsplit(df_s$seas_y, split="_", fixed=TRUE)
     # split_s = unlist(lapply(split_dfs, "[[", 1))
