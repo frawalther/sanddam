@@ -95,7 +95,11 @@ transformed parameters {
 
     } // end for loop
   // add GP effect to the linear model
+<<<<<<< HEAD
   mu = gamma + a + b1 * P + b2 * presence;
+=======
+  mu = gamma + a + b1 * P;
+>>>>>>> 7ed078a8115cbd382b77de45b6a6a5692fc527d0
   } // end anonymous block
 }
 
