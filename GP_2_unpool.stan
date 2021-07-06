@@ -4,10 +4,12 @@ data {
   vector<lower = -1, upper = 1>[N] evi;//EVI(mean)
   vector [N] P; //Precipitation(mean)
   real time [N];//time order
-  vector [N] presence; //Sand dam presence 
   
-  // int<lower=1> LC [N];
-  // int n_lc;
+  int<lower=1> presence; //Sand dam presence
+  matrix[N, presence] p;// presence as dummy/indicator variable (0,1)
+
+  int<lower=1> n_lc; // lc levels
+  int<lower=1, upper = n_lc> LC [N]; // LC as index variable
 
   int<lower=1> ngp; //Number of GPs to fit 
   int<lower=1, upper = ngp> gp_id [N]; //sampling unit ID, allowing for one GP per 
@@ -59,11 +61,18 @@ parameters {
 
   //regression parameters
   real a; //intercept
-  real b1; // slope predictor 1
-  real b2; //slope predictor 2
+  real b1; // slope predictor 1 (P)
+  real b2; //slope predictor 2 (presence)
+  real b3; //slope predictor 3 (lc)
 
   // scaled latent GP effect 
  vector [N] eta; 
+ 
+ //parameter for presence
+ vector[presence] b_p;
+ // 
+ // parameter for LC
+ vector[n_lc] b_lc;
 }
 
 transformed parameters {
@@ -95,7 +104,7 @@ transformed parameters {
 
     } // end for loop
   // add GP effect to the linear model
-  mu = gamma + a + b1 * P + b2 * presence;
+  mu = gamma + a + b1 * P + b_p * p + b_lc[LC];
   } // end anonymous block
 }
 
@@ -108,7 +117,8 @@ model {
   sigma ~ cauchy(0, 10);
   a ~ normal(0,10);
   b1 ~ normal(0,10);
-  b2 ~ normal(0,10);
+  b_p ~ normal(0,10);
+  b_lc ~ normal(0,10);
 
   evi ~ normal(mu, sigma);
 }
