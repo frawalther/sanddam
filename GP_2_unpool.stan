@@ -5,11 +5,11 @@ data {
   vector [N] P; //Precipitation(mean)
   real time [N];//time order
   
-  int<lower=1> presence; //Sand dam presence
-  matrix[N, presence] p;// presence as dummy/indicator variable (0,1)
+  int<lower=1> k_p; //Sand dam presence
+  matrix[N, k_p] p;// presence as dummy/indicator variable (0,1)
 
-  int<lower=1> n_lc; // lc levels
-  int<lower=1, upper = n_lc> LC [N]; // LC as index variable
+  int<lower=1> k_lc; // lc categories 
+  int<lower=1, upper = k_lc> LC [N]; // LC as index variable
 
   int<lower=1> ngp; //Number of GPs to fit 
   int<lower=1, upper = ngp> gp_id [N]; //sampling unit ID, allowing for one GP per 
@@ -69,10 +69,10 @@ parameters {
  vector [N] eta; 
  
  //parameter for presence
- vector[presence] b_p;
+ vector[k_p] b_p;
  // 
  // parameter for LC
- vector[n_lc] b_lc;
+ vector[k_lc] b_lc;
 }
 
 transformed parameters {
@@ -104,13 +104,13 @@ transformed parameters {
 
     } // end for loop
   // add GP effect to the linear model
-  mu = gamma + a + b1 * P + b_p * p + b_lc[LC];
+  mu = gamma + a + b1 * P + b_p * p + b_lc * LC;
   } // end anonymous block
 }
 
  
 model { 
-
+//priors
   rho ~ inv_gamma(5,5);
   alpha ~ std_normal();
   eta ~ std_normal();
@@ -119,7 +119,7 @@ model {
   b1 ~ normal(0,10);
   b_p ~ normal(0,10);
   b_lc ~ normal(0,10);
-
+//likelihood
   evi ~ normal(mu, sigma);
 }
 
