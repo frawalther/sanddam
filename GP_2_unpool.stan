@@ -1,15 +1,22 @@
-// latent variable GP 
+// latent variable GP; unpooled 
 data {
   int <lower=1> N; //nrows(df)
-  vector<lower = -1, upper = 1>[N] evi;//EVI(mean)
-  vector [N] P; //Precipitation(mean)
+  vector<lower = -1, upper = 1>[N] evi;// response 
+  vector [N] P; //Precipitation
   real time [N];//time order
   
-  int<lower=1> k_p; //Sand dam presence
-  matrix[N, k_p] p;// presence as dummy/indicator variable (0,1)
-
-  int<lower=1> k_lc; // lc categories 
-  int<lower=1, upper = k_lc> LC [N]; // LC as index variable
+  vector [N] presence; //wrong data type
+  vector [N] lc; //wrong data type
+  
+  // int<lower=1> k_p; //Sand dam presence 
+  // matrix[N, k_p] p;// as dummy/indicator variable (0,1)
+  // 
+  // int<lower=1> k_lc; // lc categories 
+  // matrix[N, k_lc] lc;
+  // int<lower=1, upper = k_lc> LC [N]; // LC as index variable
+  // 
+  // int<lower=1> D; //dimensionality of predictors?
+  // matrix[N, D] X;
 
   int<lower=1> ngp; //Number of GPs to fit 
   int<lower=1, upper = ngp> gp_id [N]; //sampling unit ID, allowing for one GP per 
@@ -67,12 +74,12 @@ parameters {
 
   // scaled latent GP effect 
  vector [N] eta; 
- 
- //parameter for presence
- vector[k_p] b_p;
- // 
- // parameter for LC
- vector[k_lc] b_lc;
+
+ // //parameter for presence
+ // vector[k_p] b_p;
+ // // 
+ // // parameter for LC
+ // vector[k_lc] b_lc;
 }
 
 transformed parameters {
@@ -104,10 +111,10 @@ transformed parameters {
 
     } // end for loop
   // add GP effect to the linear model
-  mu = gamma + a + b1 * P + b_p * p + b_lc * LC;
+  //mu = gamma + a + b1 * P + b_p * X + b_lc * LC;
+  mu = gamma + a + b1 * P + b2 * presence + b3 * lc; 
   } // end anonymous block
 }
-
  
 model { 
 //priors
@@ -117,8 +124,10 @@ model {
   sigma ~ cauchy(0, 10);
   a ~ normal(0,10);
   b1 ~ normal(0,10);
-  b_p ~ normal(0,10);
-  b_lc ~ normal(0,10);
+  b2 ~ normal(0,10);
+  b3 ~ normal(0,10);
+  // b_p ~ normal(0,10);
+  // b_lc ~ normal(0,10);
 //likelihood
   evi ~ normal(mu, sigma);
 }
