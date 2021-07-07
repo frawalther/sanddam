@@ -15,7 +15,8 @@ data {
   // matrix[N, k_lc] lc;
   // int<lower=1, upper = k_lc> LC [N]; // LC as index variable
   // 
-  // int<lower=1> D; //dimensionality of predictors?
+  // predictor matrix 
+  // int<lower=1> D; //N_pred
   // matrix[N, D] X;
 
   int<lower=1> ngp; //Number of GPs to fit 
@@ -121,13 +122,15 @@ model {
   rho ~ inv_gamma(5,5);
   alpha ~ std_normal();
   eta ~ std_normal();
-  sigma ~ cauchy(0, 10);
+  sigma ~ cauchy(0, 15); //adjust prior
   a ~ normal(0,10);
   b1 ~ normal(0,10);
   b2 ~ normal(0,10);
   b3 ~ normal(0,10);
+  
   // b_p ~ normal(0,10);
   // b_lc ~ normal(0,10);
+  
 //likelihood
   evi ~ normal(mu, sigma);
 }

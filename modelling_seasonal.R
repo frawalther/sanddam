@@ -12,10 +12,6 @@ library(loo)
 df_par <- df_com %>%
   filter (class != "veg_aqua")
 
-#aggregate over year 
-df_y <- df_par %>%
-  mutate (year = year(year_month))
-
 # aggregate over the 4 periods 
 
 df_y_m <- df_par %>%
@@ -71,12 +67,13 @@ nrow(df_s[is.na(df_s$presence), ])
 #a. either remove them
 #or b. try to work with "Year_Us column"
 
-#for now remove:
+#for now: removed:
 df_s <- df_s %>%
   drop_na("presence")
 unique(df_s$presence)
 
-standat = with(df_s[df_s$X <= 3,], list(
+# # # CREATE LIST OF DATA FOR STAN MODEL # # #
+standat = with(df_s[df_s$ID <= 3,], list(
   evi = evi,
   P = P,
   time = time_mean,
@@ -85,12 +82,21 @@ standat = with(df_s[df_s$X <= 3,], list(
   gp_id = as.integer(factor(gp_id))
 ))
 
-
 standat$gp_sampsize = table(standat$gp_id)
 standat$max_gp_sampsize = max(standat$gp_sampsize)
 standat$ngp = max(standat$gp_id)
 standat$N = length(standat$evi)
 
+standat$k_p = max(standat$presence)
+standat$k_lc = max(standat$lc)
+
+#experimenting
+standat$X <- model.matrix( ~ presence, data = df_s) #design matrix for dummy variable "presence"
+model.matrix( ~ LC_proj, data = df_s)
+unique(df_s$LC_proj)
+
+
+# GAUSSIAN PROCESS MODEL #
 ### UNPOOLED GP ###
 GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.stan")
 
@@ -108,12 +114,24 @@ plot(fit_GP2_unpooled)
   ratios_GP2unp <- neff_ratio(fit_GP2_unpooled)
   mcmc_neff(ratios_GP2unp)
   #traceplot
-  traceplot(fit_GP2_unpooled, pars= c("rho", "alpha", "sigma", "a", "b1", "b2")) #Which parameter are of interest?
+  traceplot(fit_GP2_unpooled, pars= c("rho", "alpha", "sigma", "a", "b1", "b2", "b3")) #Which parameter are of interest?
   #or
-  mcmc_trace(fit_GP2_unpooled, pars= c("rho", "alpha", "sigma", "a", "b1", "b2")) #Which parameter are of interest?
+  mcmc_trace(fit_GP2_unpooled, pars= c("rho", "alpha", "sigma", "a", "b1", "b2", "b3")) #Which parameter are of interest?
   #Error: Some 'pars' don't match parameter names: rho, alpha FALSE
 
 GP2_unpooled <- as.matrix(fit_GP2_unpooled)
+
+mcmc_areas(GP2_unpooled, 
+           pars=c('b1', "b2", "b3"),
+           prob = .90
+)
+#first interpretation: b2 positive, evi increases with increasing presence(1) 
+# -> ~4.5% increase of EVI when sand dam is present?
+mcmc_areas(GP2_unpooled, 
+           pars=c("b2"),
+           prob = .90
+)                       
+
 
 #### PARTIALLY POOLED GP ####
 GP2_ppool = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_ppool.stan")
