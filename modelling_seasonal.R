@@ -77,8 +77,8 @@ standat = with(df_s[df_s$ID <= 3,], list(
   evi = evi,
   P = P,
   time = time_mean,
-  presence = as.integer(factor(presence)),
-  lc = as.integer(factor(LC_proj)),
+  presence = presence, ## do not do the factor thing for dummy variables, only index variables
+  lc_class = as.integer(factor(LC_proj)),
   gp_id = as.integer(factor(gp_id))
 ))
 
@@ -86,7 +86,7 @@ standat$gp_sampsize = table(standat$gp_id)
 standat$max_gp_sampsize = max(standat$gp_sampsize)
 standat$ngp = max(standat$gp_id)
 standat$N = length(standat$evi)
-
+standat$n_lc = max(standat$lc_class)
 standat$k_p = max(standat$presence)
 standat$k_lc = max(standat$lc)
 
