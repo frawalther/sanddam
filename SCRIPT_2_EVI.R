@@ -103,7 +103,6 @@ for (i in seq_along(dates_u)){
   #gc()
 }
 
-
 #Load raster mosaics
 Rasmo_files <- list.files("C:/Users/franz/Documents/01Master/MasterThesis/Pius/R/sand dam/raster_mosaics/", 
                           pattern='EVI', recursive=T, full.names = T)

@@ -2,12 +2,14 @@
 data {
   int<lower=1> N; //nrows(df)
   vector<lower = -1, upper = 1>[N] evi;//EVI(mean)
-  vector [N] P; //Precipitation(mean)
+  vector <lower = 0> [N] P; //Precipitation(mean)
   real time [N];//time order
-  vector [N] presence; //Sand dam presence 
   
-  // int<lower=1> LC [N];
-  // int n_lc;
+  int <lower = 0, upper = 1> presence [N]; //sand dam presence
+  
+  int <lower = 1> n_lc; // number of land cover classes
+  // land cover class; must be int array to use for indexing
+  int <lower = 1, upper = n_lc> lc_class [N];
   
   int<lower=1> ngp; //Number of GPs to fit 
   int<lower=1, upper = ngp> gp_id [N]; //sampling unit ID, allowing for one GP per 
@@ -66,9 +68,10 @@ parameters {
   real <lower = 0> sigma; //variance
   
   //regression parameters
-  real a; //intercept
-  real b1; // slope predictor 1
-  real b2; //slope predictor 2
+  // real a; //intercept
+  real b1; // slope predictor 1: precipitation
+  real b2; //slope predictor 2: presence
+  vector [n_lc] b3; //slope predictor 3: lc
   
   // scaled latent GP effect 
   vector [N] eta; 
@@ -102,28 +105,36 @@ transformed parameters {
       }
       
     } // end for loop
-    // add GP effect to the linear model
-    mu = gamma + a + b1 * P + b2 * presence;
+  // add GP effect to the linear model
+    // when using an index variable like lc_class, you must evaluate the likelihood in a loop
+    for(i in 1:N) {
+      mu[i] = gamma[i] + b1 * P[i] + b2 * presence[i] + b3[lc_class[i]]; 
+    }
   } // end anonymous block
 }
 
-
-
 model { 
   
-  rho ~ normal(rho_mean, rho_sig);
+  rho ~ normal(rho_mean, rho_sig); 
   alpha ~ normal(alpha_mean, alpha_sig);
   eta ~ std_normal();
-  sigma ~ cauchy(0, 10);
-  a ~ normal(0,10);
-  b1 ~ normal(0,10);
-  b2 ~ normal(0,10);
+  sigma ~ cauchy(0, 15);
+  //a ~ normal(0,10);
+  b1 ~ normal(0,2.5);
+  b2 ~ normal(0,1);
+  b3 ~ normal(0,1);
   
   alpha_mean ~ std_normal();
-  alpha_sig ~ cauchy(0, 10);
+  alpha_sig ~ cauchy(0, 50);
   rho_mean ~ inv_gamma(5,5);
-  rho_sig ~ cauchy(0, 10);
-  
+  rho_sig ~ cauchy(0, 50);
+
   evi ~ normal(mu, sigma);
 }
 
+generated quantities {
+   vector [N] loglik;
+   for(i in 1:N) {
+     loglik[i] = normal_lpdf(evi[i] | mu[i], sigma);
+   }
+}

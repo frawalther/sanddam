@@ -2,24 +2,14 @@
 data {
   int <lower=1> N; //nrows(df)
   vector<lower = -1, upper = 1>[N] evi;// response 
-  vector [N] P; //Precipitation
+  vector <lower = 0> [N] P; //Precipitation
   real time [N];//time order
   
-  int <lower = 0, upper = 1> presence [N]; //wrong data type
+  int <lower = 0, upper = 1> presence [N]; //sand dam presence
   int <lower = 1> n_lc; // number of land cover classes
   // land cover class; must be int array to use for indexing
   int <lower = 1, upper = n_lc> lc_class [N]; 
-  
-  // int<lower=1> k_p; //Sand dam presence 
-  // matrix[N, k_p] p;// as dummy/indicator variable (0,1)
-  // 
-  // int<lower=1> k_lc; // lc categories 
-  // matrix[N, k_lc] lc;
-  // int<lower=1, upper = k_lc> LC [N]; // LC as index variable
-  // 
-  // predictor matrix 
-  // int<lower=1> D; //N_pred
-  // matrix[N, D] X;
+
 
   int<lower=1> ngp; //Number of GPs to fit 
   int<lower=1, upper = ngp> gp_id [N]; //sampling unit ID, allowing for one GP per 
@@ -72,8 +62,8 @@ parameters {
   //regression parameters
 //  real a; //intercept // not needed anymore, it is incorporated in b_lc
   real b1; // slope predictor 1 (P)
-  real b_p; //slope predictor 2 (presence)
-  vector [n_lc] b_lc; //slope predictor 3 (lc), one per class
+  real b2; //slope predictor 2 (presence)
+  vector [n_lc] b3; //slope predictor 3 (lc), one per class
 
   // scaled latent GP effect 
  vector [N] eta; 
@@ -114,11 +104,9 @@ transformed parameters {
 
     } // end for loop
   // add GP effect to the linear model
-  //mu = gamma + a + b1 * P + b_p * X + b_lc * LC;
-
     // when using an index variable like lc_class, you must evaluate the likelihood in a loop
     for(i in 1:N) {
-      mu[i] = gamma[i] + b1 * P[i] + b_p * presence[i] + b_lc[lc_class[i]]; 
+      mu[i] = gamma[i] + b1 * P[i] + b2 * presence[i] + b3[lc_class[i]]; 
     }
   } // end anonymous block
 }
@@ -130,14 +118,18 @@ model {
   eta ~ std_normal();
   sigma ~ cauchy(0, 15); //adjust prior
 //  a ~ normal(0,10);
-  b1 ~ normal(0,10);
-  b_p ~ normal(0,10);
-  b_lc ~ normal(0,10);
-  
-  // b_p ~ normal(0,10);
-  // b_lc ~ normal(0,10);
+  b1 ~ normal(0,2.5); //precipitation
+  b2 ~ normal(0,1); //presence
+  b3 ~ normal(0,1); //land cover 
   
 //likelihood
   evi ~ normal(mu, sigma);
+}
+
+generated quantities {
+   vector [N] loglik;
+   for(i in 1:N) {
+     loglik[i] = normal_lpdf(evi[i] | mu[i], sigma);
+   }
 }
 

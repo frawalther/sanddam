@@ -225,10 +225,6 @@ head(df_com)
 
 
 
-
-
-
-
         # #Precipitation
         # # # # # # # #
         # #  [DAILY]  #
