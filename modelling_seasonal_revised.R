@@ -2,7 +2,6 @@
 
 library(dplyr)
 library(rstan)
-library(ggplot2)
 library(lubridate)
 library(zoo)
 library(tidyr)
@@ -12,6 +11,9 @@ library(shinystan)
 library(purrr)
 library(ggsci)
 library(tictoc)
+
+library(ggplot2)
+library(gridExtra)
 
     # df_par <- df_com  
     # 
@@ -76,12 +78,52 @@ unique(df_s$seas)
 #2 = MAM
 #4 = OND
 
-save(df_s, file = "df_s.RData")
+#save(df_s, file = "df_s.RData")
 head(df_s)
 
-unique(df_s$ID)
+# PLOTTING AROUND: DATA VISUALIZATION (EVI, Precipitation)
+#für x == 1
+e1 <- df_s %>%
+  filter (X == 1) %>%
+  ggplot(aes(x=time_mean, y=evi)) + geom_point() + geom_line() 
+
+p1 <- df_s %>%
+  filter (X == 1) %>%
+  ggplot(aes(x=time_mean, y =P))+geom_bar(stat = "identity", color="blue", fill="blue", width = 0.5)
+
+grid.arrange(e1, p1)
+
+e2 <- df_s %>%
+  filter (X == 2) %>%
+  ggplot(aes(x=time_mean, y=evi)) + geom_point() + geom_line() 
+
+p2 <- df_s %>%
+  filter (X == 2) %>%
+  ggplot(aes(x=time_mean, y =P))+geom_bar(stat = "identity", color="blue", fill="blue", width = 0.5)
+
+grid.arrange(e2, p2)
+
+e3 <- df_s %>%
+  filter (X == 3) %>%
+  ggplot(aes(x=time_mean, y=evi)) + geom_point() + geom_line() 
+
+p3 <- df_s %>%
+  filter (X == 3) %>%
+  ggplot(aes(x=time_mean, y =P))+geom_bar(stat = "identity", color="blue", fill="blue", width = 0.5)
+
+grid.arrange(e3, p3)
+
+ggplot(df_s, aes(x=time_mean, y=evi, color=season)) + geom_point() + geom_smooth(method=lm)
+
+ggplot(df_s, aes(x = time_mean, y = evi, color = X)) + geom_point() +
+  geom_line()
+
+ggplot(df_s, aes(x=time_mean, y=P)) + geom_bar(stat = "identity", color="blue", fill="blue", width = 0.5) 
+  #Warning message:
+  #position_stack requires non-overlapping x intervals 
+
 # # # CREATE LIST OF DATA FOR STAN MODEL # # #
-standat = with(df_s, list( #[df_s$ID <= 30,] #[df_s$ID <= 10,]
+standat = with(df_s[df_s$ID <= 5,], list( #[df_s$ID <= 30,] #[df_s$ID <= 10,]
   evi = evi,
   P = P,
   time = time_mean,
@@ -105,148 +147,152 @@ standat$P = standat$P * 0.001
 ### UNPOOLED GP ###
 GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.stan")
 
-tic()
-fit_GP2_unpooled = sampling (GP2_unpooled, data=standat,
-                             chains=4,
-                             cores=7,
-                             iter=4000,
-                             warmup=1000)
-toc()
-
-#took 3.5 hours 
-#
-# control = list(adapt_delta = 0.99,
-#                max_treedepth = 15)) #,warmup = 1000
-
-# summary(fit_GP2_unpooled)
-# plot(fit_GP2_unpooled)
-
-
-ll_1 <- extract_log_lik(fit_GP2_unpooled, parameter_name = "loglik", merge_chains = TRUE)
-m1 <- loo(ll_1)
-
-
-
-rstan::check_divergences(fit_GP2_unpooled)
-
-n_chains <- 4
-warmups <- 1000
-max_treedepth <- 10
-mack_diagnostics <- rstan::get_sampler_params(fit_GP2_unpooled) %>% 
-  set_names(1:n_chains) %>% 
-  map_df(as_data_frame,.id = 'chain') %>% 
-  group_by(chain) %>% 
-  mutate(iteration = 1:length(chain)) %>% 
-  mutate(warmup = iteration <= warmups)
-
-mack_diagnostics %>% 
-  group_by(warmup, chain) %>% 
-  summarise(percent_divergent = mean(divergent__ >0)) %>% 
-  ggplot() +
-  geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') + 
-  scale_y_continuous(labels = scales::percent, name = "% Divergent Runs")  + 
-  scale_fill_npg()
-
-mack_diagnostics %>% 
-  ggplot(aes(iteration, treedepth__, color = chain)) + 
-  geom_line() + 
-  geom_hline(aes(yintercept = max_treedepth), color = 'red') + 
-  scale_color_locuszoom()
-
-#Convergence/ MCMC diagnostics 
-#Rhat
-rhat_GP2unp <- rhat(fit_GP2_unpooled)
-mcmc_rhat_hist(rhat_GP2unp)
-#Neff
-ratios_GP2unp <- neff_ratio(fit_GP2_unpooled)
-mcmc_neff(ratios_GP2unp)
-
-#traceplot
-#Which parameters are of interest?
-#, "sigma" = temporal space (VCV matrix of time steps), 
-# "b1" = slope for precipitation 
-# "b2" = slope for presence (=sand dam info)
-# "b3" = slope for land cover (categorical predictor: shrubs, cropland)
-# rho?
-# alpha?
-
-# traceplot(fit_GP2_unpooled, pars= c("rho[1]", "alpha[1]")) 
-# traceplot(fit_GP2_unpooled, pars = c("b1", "b2"))
-# traceplot(fit_GP2_unpooled, pars = c("b3[1]", "b3[2]"))
-# 
-# #or
-# mcmc_trace(fit_GP2_unpooled, pars= c("rho[2]", "rho[1]","rho[3]"))#, "b1", "b2", "b3")) #Which parameter are of interest?
-
-#Posterior draws: 
-#draw samples from posterior distribution 
-
-gc()
-memory.size()
-#memory.limit()
-
-#as.matrix
-GP2_unp <- as.matrix(fit_GP2_unpooled)
-#Error: cannot allocate vector of size 1.7 Gb
-#solution closed other tabs!
-
-    # #extract
-    # list_of_draws <- rstan::extract(fit_GP2_unpooled)
-    # #Error: cannot allocate vector of size 863.4 Mb
-    # 
-    # #as.data.frame
-    # list_of_draws <- as.data.frame(fit_GP2_unpooled)
-    # #Error: cannot allocate vector of size 1.7 Gb
-    # 
-    # #as.array
-    # list_of_draws <- as.array(fit_GP2_unpooled)
-    # #Error: cannot allocate vector of size 1.7 Gb
-
-mcmc_areas(GP2_unp, 
-           pars='b1',
-           prob = .90
-)
-
-mcmc_areas(GP2_unp, 
-           pars='b2',
-           prob = .90
-)
-
-mcmc_areas(GP2_unp, 
-           pars=c("b3[1]", "b3[2]"),
-           prob = .90
-)
-
-mcmc_areas(GP2_unp, 
-           pars='gamma',
-           prob = .90
-)
-
-
-#first interpretation: 
-#b1 positive, evi increases with increasing precipitation 
-#b2 positive, evi increases with increasing sand dam presence 
-#b3 comparing shrubs and cropland - very similar, but slightly higher evi at 2 (cropland) than 1 (shrubs)
-#gamma
+          tic()
+          fit_GP2_unpooled = sampling (GP2_unpooled, data=standat,
+                                       chains=4,
+                                       cores=7,
+                                       iter=4000,
+                                       warmup=1000)
+          toc()
+          
+          #took 3.5 hours 
+          #
+          # control = list(adapt_delta = 0.99,
+          #                max_treedepth = 15)) #,warmup = 1000
+          
+          # summary(fit_GP2_unpooled)
+          # plot(fit_GP2_unpooled)
+          
+          
+          ll_1 <- extract_log_lik(fit_GP2_unpooled, parameter_name = "loglik", merge_chains = TRUE)
+          m1 <- loo(ll_1)
+          
+          
+          
+          rstan::check_divergences(fit_GP2_unpooled)
+          
+          n_chains <- 4
+          warmups <- 1000
+          max_treedepth <- 10
+          mack_diagnostics <- rstan::get_sampler_params(fit_GP2_unpooled) %>% 
+            set_names(1:n_chains) %>% 
+            map_df(as_data_frame,.id = 'chain') %>% 
+            group_by(chain) %>% 
+            mutate(iteration = 1:length(chain)) %>% 
+            mutate(warmup = iteration <= warmups)
+          
+          mack_diagnostics %>% 
+            group_by(warmup, chain) %>% 
+            summarise(percent_divergent = mean(divergent__ >0)) %>% 
+            ggplot() +
+            geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') + 
+            scale_y_continuous(labels = scales::percent, name = "% Divergent Runs")  + 
+            scale_fill_npg()
+          
+          mack_diagnostics %>% 
+            ggplot(aes(iteration, treedepth__, color = chain)) + 
+            geom_line() + 
+            geom_hline(aes(yintercept = max_treedepth), color = 'red') + 
+            scale_color_locuszoom()
+          
+          #Convergence/ MCMC diagnostics 
+          #Rhat
+          rhat_GP2unp <- rhat(fit_GP2_unpooled)
+          mcmc_rhat_hist(rhat_GP2unp)
+          #Neff
+          ratios_GP2unp <- neff_ratio(fit_GP2_unpooled)
+          mcmc_neff(ratios_GP2unp)
+          
+          #traceplot
+          #Which parameters are of interest?
+          #, "sigma" = temporal space (VCV matrix of time steps), 
+          # "b1" = slope for precipitation 
+          # "b2" = slope for presence (=sand dam info)
+          # "b3" = slope for land cover (categorical predictor: shrubs, cropland)
+          # rho?
+          # alpha?
+          
+          # traceplot(fit_GP2_unpooled, pars= c("rho[1]", "alpha[1]")) 
+          # traceplot(fit_GP2_unpooled, pars = c("b1", "b2"))
+          # traceplot(fit_GP2_unpooled, pars = c("b3[1]", "b3[2]"))
+          # 
+          # #or
+          # mcmc_trace(fit_GP2_unpooled, pars= c("rho[2]", "rho[1]","rho[3]"))#, "b1", "b2", "b3")) #Which parameter are of interest?
+          
+          #Posterior draws: 
+          #draw samples from posterior distribution 
+          
+          gc()
+          memory.size()
+          #memory.limit()
+          
+          #as.matrix
+          GP2_unp <- as.matrix(fit_GP2_unpooled)
+          #Error: cannot allocate vector of size 1.7 Gb
+          #solution closed other tabs!
+          
+              # #extract
+              # list_of_draws <- rstan::extract(fit_GP2_unpooled)
+              # #Error: cannot allocate vector of size 863.4 Mb
+              # 
+              # #as.data.frame
+              # list_of_draws <- as.data.frame(fit_GP2_unpooled)
+              # #Error: cannot allocate vector of size 1.7 Gb
+              # 
+              # #as.array
+              # list_of_draws <- as.array(fit_GP2_unpooled)
+              # #Error: cannot allocate vector of size 1.7 Gb
+          
+          mcmc_areas(GP2_unp, 
+                     pars='b1',
+                     prob = .90
+          )
+          
+          mcmc_areas(GP2_unp, 
+                     pars='b2',
+                     prob = .90
+          )
+          
+          mcmc_areas(GP2_unp, 
+                     pars=c("b3[1]", "b3[2]"),
+                     prob = .90
+          )
+          
+          mcmc_areas(GP2_unp, 
+                     pars='gamma',
+                     prob = .90
+          )
+          
+          
+          #first interpretation: 
+          #b1 positive, evi increases with increasing precipitation 
+          #b2 positive, evi increases with increasing sand dam presence 
+          #b3 comparing shrubs and cropland - very similar, but slightly higher evi at 2 (cropland) than 1 (shrubs)
+          #gamma
 
 ########################
 GP_unpool_seas = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_seas.stan")
 
-tic()
-fit_GP_unpool_seas = sampling (GP_unpool_seas, data=standat,
-                             chains=4,
-                             cores=7,
-                             iter=4000,
-                             warmup=1000,
-                             control = list(adapt_delta = 0.99, #Increase the target acceptance rate
-                                            max_treedepth = 15)) #Increase the maximum allowed treedepth
-toc()
+          tic()
+          fit_GP_unpool_seas = sampling (GP_unpool_seas, data=standat,
+                                       chains=4,
+                                       cores=7,
+                                       iter=7000,
+                                       warmup=3000,
+                                       control = list(adapt_delta = 0.99, #Increase the target acceptance rate
+                                                      max_treedepth = 15)) #Increase the maximum allowed treedepth
+          toc()
+          
+          
+          ll_m2 <- extract_log_lik(fit_GP_unpool_seas, parameter_name = "loglik", merge_chains = TRUE)
+          m2 <- loo(ll_m2)
+          
+          loo_compare(m1, m2)
 
-
-ll_m2 <- extract_log_lik(fit_GP_unpool_seas, parameter_name = "loglik", merge_chains = TRUE)
-m2 <- loo(ll_m2)
-
-loo_compare(m1, m2)
-
+          rhat_GP2_seas <- rhat(fit_GP_unpool_seas)
+          mcmc_rhat_hist(rhat_GP2_seas)
+          
+          GP2_seas <- as.matrix(fit_GP_unpool_seas)
 #### PARTIALLY POOLED GP ####
 GP2_ppool = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_ppool.stan")
 
