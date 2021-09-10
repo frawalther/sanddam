@@ -49,9 +49,15 @@ yrep_t_long <- gather(yrep_t, key=iter, value=evi_est, -time, -gp_id, -presence,
 head(yrep_t_long)
 
 
-yrep_mean <- yrep_t_long %>%
+yrep_mean_w <- yrep_t_long %>%
    group_by(lc_sd) %>%
    summarise(weighted.mean(evi_est, area))
+
+yrep_mean <- yrep_t_long %>%
+   group_by(lc_sd) %>%
+   summarise(mean(evi_est))
+#comment: 
+#Do I need to weigh it or does anyways every lc_sd have the same area? 
 
 
 
@@ -80,7 +86,7 @@ yrep_mean <- yrep_t_long %>%
       plot <- yrep_t_long %>%
          #filter (gp_id==1) %>%
          group_by(time) %>%
-         summarize("mean_evi" = mean(evi_est),
+         summarize("mean_evi" = weighted.mean(evi_est, area),
                    "evi_Q25" = quantile(evi_est, probs = 0.25),
                    "evi_Q75" = quantile(evi_est, probs = 0.75),
                    "evi_Q05" = quantile(evi_est, probs = 0.05),
@@ -93,36 +99,36 @@ yrep_mean <- yrep_t_long %>%
                             breaks = seq(0, 92, by=12),
                             labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021")) 
       #WRONG???
-      plot <- yrep_t_long %>%
-         group_by(season) %>%
-         # summarize("mean_evi" = mean(evi_est),
-         #           "evi_Q25" = quantile(evi_est, probs = 0.25),
-         #           "evi_Q75" = quantile(evi_est, probs = 0.75),
-         #           "evi_Q05" = quantile(evi_est, probs = 0.05),
-         #           "evi_Q95" = quantile(evi_est, probs = 0.95)) %>%
-         ggplot(aes(x=time, y=evi_est)) + 
-         #   geom_ribbon(aes(ymin = evi_Q05, ymax=evi_Q95, fill="lightblue"), alpha =0.3) +
-         #   geom_ribbon(aes(ymin = evi_Q25, ymax=evi_Q75, fill="yellow"), alpha = 0.4) +
-         geom_point(aes(x=time, y=evi_est, color="blue")) +
-         scale_x_continuous("Time", 
-                            breaks = seq(0, 92, by=12),
-                            labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021"))
-      
+      # plot <- yrep_t_long %>%
+      #    group_by(c("season", "lc_id") %>%
+      #    # summarize("mean_evi" = mean(evi_est),
+      #    #           "evi_Q25" = quantile(evi_est, probs = 0.25),
+      #    #           "evi_Q75" = quantile(evi_est, probs = 0.75),
+      #    #           "evi_Q05" = quantile(evi_est, probs = 0.05),
+      #    #           "evi_Q95" = quantile(evi_est, probs = 0.95)) %>%
+      #    ggplot(aes(x=time, y=evi_est)) + 
+      #    #   geom_ribbon(aes(ymin = evi_Q05, ymax=evi_Q95, fill="lightblue"), alpha =0.3) +
+      #    #   geom_ribbon(aes(ymin = evi_Q25, ymax=evi_Q75, fill="yellow"), alpha = 0.4) +
+      #    geom_point(aes(x=time, y=evi_est, color="blue")) +
+      #    scale_x_continuous("Time", 
+      #                       breaks = seq(0, 92, by=12),
+      #                       labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021"))
+      # 
       
       epred <- yrep_t_long %>%
-         filter (gp_id == 10) %>%
+         filter (lc_sd == 5) %>%
          group_by(time) %>%
          summarize("mean_evi" = mean(evi_est)) %>%
          ggplot(aes(x=time, y=mean_evi)) + geom_point() + geom_line() +
-         labs(y = "EVI", title="EVI prediction (GP 10)") + 
+         labs(y = "EVI", title="EVI prediction (lc_sd == 5)") + 
          scale_x_continuous("Time", 
                             breaks = seq(0, 92, by=12),
                             labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021"))
-      
+
       eobs <- df_try %>%
          filter (X == 5) %>% #messed up numbers
          ggplot(aes(x=time_mean, y=evi)) + geom_point() + geom_line() +
-         labs(y = "EVI", title="EVI observed (GP 10)") + 
+         labs(y = "EVI", title="EVI observed (lc_sd == 5)") + 
          scale_x_continuous("Time", 
                             breaks = seq(0, 92, by=12),
                             labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021"))
@@ -131,10 +137,10 @@ yrep_mean <- yrep_t_long %>%
 
 
 
-      group_cols <- c("presence", "time")  
+      group_cols <- c("presence", "lc_sd", "time")  
       yrep_t_long %>% 
          group_by(!!!syms(group_cols)) %>% 
-         summarize("mean_evi" = mean(evi_est)) %>%
+         summarize("mean_evi" = weighted.mean(evi_est, area)) %>%
          ggplot(aes(y=mean_evi, x=time, colour=factor(presence))) + geom_point() +
          scale_x_continuous("Time", 
                             breaks = seq(0, 92, by=12),
@@ -204,7 +210,6 @@ mean_evi <- stats::weighted.mean(yrep_t_long$evi_est, yrep_t_long$area)
 #          add credible intervals 
   
 #outer cross-validation 
-
 cv_pred <- yrep_t_long %>%
          group_by(!!!syms(c("time", "lc_sd"))) %>%
          summarise(evi_pred=weighted.mean(evi_est, area))
@@ -219,24 +224,31 @@ cv_pred <- as.data.frame(cv_pred)
 cv <- cv_obs
 cv$evi_pred <- cv_pred$evi_pred
 
-
-eq <- function(x,y) {
-   m <- lm(y ~ x)
-   as.character(
-      as.expression(
-         substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
-                    list(a = format(coef(m)[1], digits = 4),
-                         b = format(coef(m)[2], digits = 4),
+lm_eqn <- function(cv){
+   m <- lm(evi_obs ~ evi_pred, cv);
+   eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+                    list(a = format(unname(coef(m)[1]), digits = 2),
+                         b = format(unname(coef(m)[2]), digits = 2),
                          r2 = format(summary(m)$r.squared, digits = 3)))
-      )
-   )
+   as.character(as.expression(eq));
 }
 
-ggplot(cv,aes(x = evi_pred, y = evi_obs)) + 
-   geom_point() + 
-   geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
-   geom_text(x = 2, y = 300, label = eq(cv$evi_pred,cv$evi_obs), parse = TRUE)
+p <- ggplot(data = cv, aes(x = evi_pred, y = evi_obs)) +
+   geom_smooth(method = "lm", se=FALSE, color="red", formula = y ~ x) +
+   geom_point() +
+   geom_abline(intercept = 0, slope = 1) +
+   geom_text(x = 0.22, y = 0.4, label = lm_eqn(cv), parse = TRUE) +
+   #coord_cartesian(xlim= c(0,0.45),ylim=c(0,0.45))
+   labs(x="Predicted EVI", y="Observed EVI", title="Outer Cross-Validation")
+   
+p
 
+
+#points= 280 (10 GP * 28 time stemps)
+
+nrow(cv)
+
+head(cv)
 library(ggpubr)
 library(ggplot2)
 ggplot(cv,aes(x = evi_pred, y = evi_obs)) + 
