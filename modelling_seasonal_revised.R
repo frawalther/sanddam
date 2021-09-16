@@ -83,7 +83,7 @@ head(df_s)
 
 
 # # # CREATE LIST OF DATA FOR STAN MODEL # # #
-standat = with(df_s[df_s$ID <= 5,], list( #[df_s$ID <= 30,] #[df_s$ID <= 10,]
+standat = with(df_s, list( #[df_s$ID <= 30,] #[df_s$ID <= 10,] #[df_s$ID <= 5,]
   evi = evi,
   P = P,
   time = time_mean,
@@ -110,9 +110,9 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
           tic()
           fit_GP2_unpooled = sampling (GP2_unpooled, data=standat,
                                        chains=4,
-                                       cores=7,
+                                       cores=4,
                                        iter=4000,
-                                       warmup=1000)
+                                       warmup=1500)
           toc()
           
           #took 3.5 hours 
@@ -132,7 +132,7 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
           rstan::check_divergences(fit_GP2_unpooled)
           
           n_chains <- 4
-          warmups <- 1000
+          warmups <- 1500
           max_treedepth <- 10
           mack_diagnostics <- rstan::get_sampler_params(fit_GP2_unpooled) %>% 
             set_names(1:n_chains) %>% 
@@ -231,241 +231,241 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
           #gamma
 
 ########################
-GP_unpool_seas = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_seas.stan")
-
-          tic()
-          fit_GP_unpool_seas = sampling (GP_unpool_seas, data=standat,
-                                       chains=4,
-                                       cores=7,
-                                       iter=7000,
-                                       warmup=3000,
-                                       control = list(adapt_delta = 0.99, #Increase the target acceptance rate
-                                                      max_treedepth = 15)) #Increase the maximum allowed treedepth
-          toc()
-          
-          
-          ll_m2 <- extract_log_lik(fit_GP_unpool_seas, parameter_name = "loglik", merge_chains = TRUE)
-          m2 <- loo(ll_m2)
-          
-          loo_compare(m1, m2)
-
-          rhat_GP2_seas <- rhat(fit_GP_unpool_seas)
-          mcmc_rhat_hist(rhat_GP2_seas)
-          
-          GP2_seas <- as.matrix(fit_GP_unpool_seas)
-
-          mcmc_areas(GP2_seas, 
-                     pars=c("b4[1]", "b4[2]", "b4[3]", "b4[4]"),
-                     prob = .90
-          )
-          #Not sure how to inteprete? 
-          #does this predictor make sense? 
-
-          
-#### PARTIALLY POOLED GP ####
-GP2_ppool = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_ppool.stan")
-
-tic()
-fit_GP2_ppool = sampling (GP2_ppool, data=standat, 
-                          chains=6,
-                          cores=7, 
-                          iter=12000,
-                          warmup=7000,
-                          control = list(adapt_delta = 0.8, #Increase the target acceptance rate
-                                         max_treedepth = 15)) #Increase the maximum allowed treedepth)
-toc()
-#There were 986 divergent transitions after warmup (4000, 1000, no control)
-#There were 100 divergent transitions after warmup (4000, 1000, control)
-#There were 1989 divergent transitions after warmup (6000, 2000, control)
-#changed priors: only few (5?) transitions
-#
-
-#MODEL COMPARISON : Can I even compare them directly? 
-ll_3 <- extract_log_lik(fit_GP2_ppool, parameter_name = "loglik")
-m3 <- loo(ll_3)
-
-loo_compare(m1,m2,m3)
-
-summary(fit_GP2_ppool)
-GP2_pp <- as.matrix(fit_GP2_ppool)
-
-pairs(fit_GP2_ppool, pars=c("rho[1]", "rho[2]"), las=1)
-#Convergence/ MCMC diagnostics 
-#Rhat
-rhat_GP2pp <- rhat(fit_GP2_ppool)
-mcmc_rhat_hist(rhat_GP2pp)
-#Neff
-ratios_GP2pp <- neff_ratio(fit_GP2_ppool)
-mcmc_neff(ratios_GP2pp)
-
-#traceplot
-traceplot(fit_GP2_ppool, pars= c("rho[1]", "alpha[1]")) #Which parameter are of interest?
-traceplot(fit_GP2_ppool, pars = c("b1", "b2"))
-traceplot(fit_GP2_ppool, pars = c("b3[1]", "b3[2]"))
-#, "sigma", "b1", "b2", "b3"
-#or
-mcmc_trace(fit_GP2_ppool, pars= c("rho[2]", "rho[1]","rho[3]"))#, "b1", "b2", "b3")) #Which parameter are of interest?
-
-mcmc_areas(GP2_pp, 
-           pars=c('b1', "b2", "b3[1]", "b3[2]"),
-           prob = .90
-)
-
-mcmc_areas(GP2_pp, 
-           pars="b2",
-           prob = .90
-)
-
-
-#Error in check_pars(allpars, pars) : no parameter log_lik
-m_unp <-loo(GP2_ppooled)
-m_pp <-loo(GP2_unpooled)
-loo(fit_GP2_ppool)
-extract_log_lik(fit_GP2_ppool, )
-extract_log_lik(fit_GP2_ppool, parameter_name = "lp__", merge_chains = TRUE) 'lp__ = log-posterior'
-loo_compare(m_unp, m_pp)
-#Error: Not all models have the same number of data points.
-
-
-
-waic(fit_3)
-waic(fit_2)
-
-#model diagnostics
-rstan::check_divergences(fit_GP2_ppool)
-
-n_chains <- 6
-warmups <- 7000
-max_treedepth <- 15
-
-mack_diagnostics <- rstan::get_sampler_params(fit_GP2_ppool) %>% 
-  set_names(1:n_chains) %>% 
-  map_df(as_data_frame,.id = 'chain') %>% 
-  group_by(chain) %>% 
-  mutate(iteration = 1:length(chain)) %>% 
-  mutate(warmup = iteration <= warmups)
+# GP_unpool_seas = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_seas.stan")
+# 
+#           tic()
+#           fit_GP_unpool_seas = sampling (GP_unpool_seas, data=standat,
+#                                        chains=4,
+#                                        cores=7,
+#                                        iter=7000,
+#                                        warmup=3000,
+#                                        control = list(adapt_delta = 0.99, #Increase the target acceptance rate
+#                                                       max_treedepth = 15)) #Increase the maximum allowed treedepth
+#           toc()
+#           
+#           
+#           ll_m2 <- extract_log_lik(fit_GP_unpool_seas, parameter_name = "loglik", merge_chains = TRUE)
+#           m2 <- loo(ll_m2)
+#           
+#           loo_compare(m1, m2)
+# 
+#           rhat_GP2_seas <- rhat(fit_GP_unpool_seas)
+#           mcmc_rhat_hist(rhat_GP2_seas)
+#           
+#           GP2_seas <- as.matrix(fit_GP_unpool_seas)
+# 
+#           mcmc_areas(GP2_seas, 
+#                      pars=c("b4[1]", "b4[2]", "b4[3]", "b4[4]"),
+#                      prob = .90
+#           )
+#           #Not sure how to inteprete? 
+#           #does this predictor make sense? 
+# 
+#           
+# #### PARTIALLY POOLED GP ####
+# GP2_ppool = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_ppool.stan")
+# 
+# tic()
+# fit_GP2_ppool = sampling (GP2_ppool, data=standat, 
+#                           chains=6,
+#                           cores=7, 
+#                           iter=12000,
+#                           warmup=7000,
+#                           control = list(adapt_delta = 0.8, #Increase the target acceptance rate
+#                                          max_treedepth = 15)) #Increase the maximum allowed treedepth)
+# toc()
+# #There were 986 divergent transitions after warmup (4000, 1000, no control)
+# #There were 100 divergent transitions after warmup (4000, 1000, control)
+# #There were 1989 divergent transitions after warmup (6000, 2000, control)
+# #changed priors: only few (5?) transitions
+# #
+# 
+# #MODEL COMPARISON : Can I even compare them directly? 
+# ll_3 <- extract_log_lik(fit_GP2_ppool, parameter_name = "loglik")
+# m3 <- loo(ll_3)
+# 
+# loo_compare(m1,m2,m3)
+# 
+# summary(fit_GP2_ppool)
+# GP2_pp <- as.matrix(fit_GP2_ppool)
+# 
+# pairs(fit_GP2_ppool, pars=c("rho[1]", "rho[2]"), las=1)
+# #Convergence/ MCMC diagnostics 
+# #Rhat
+# rhat_GP2pp <- rhat(fit_GP2_ppool)
+# mcmc_rhat_hist(rhat_GP2pp)
+# #Neff
+# ratios_GP2pp <- neff_ratio(fit_GP2_ppool)
+# mcmc_neff(ratios_GP2pp)
+# 
+# #traceplot
+# traceplot(fit_GP2_ppool, pars= c("rho[1]", "alpha[1]")) #Which parameter are of interest?
+# traceplot(fit_GP2_ppool, pars = c("b1", "b2"))
+# traceplot(fit_GP2_ppool, pars = c("b3[1]", "b3[2]"))
+# #, "sigma", "b1", "b2", "b3"
+# #or
+# mcmc_trace(fit_GP2_ppool, pars= c("rho[2]", "rho[1]","rho[3]"))#, "b1", "b2", "b3")) #Which parameter are of interest?
+# 
+# mcmc_areas(GP2_pp, 
+#            pars=c('b1', "b2", "b3[1]", "b3[2]"),
+#            prob = .90
+# )
+# 
+# mcmc_areas(GP2_pp, 
+#            pars="b2",
+#            prob = .90
+# )
+# 
+# 
+# #Error in check_pars(allpars, pars) : no parameter log_lik
+# m_unp <-loo(GP2_ppooled)
+# m_pp <-loo(GP2_unpooled)
+# loo(fit_GP2_ppool)
+# extract_log_lik(fit_GP2_ppool, )
+# extract_log_lik(fit_GP2_ppool, parameter_name = "lp__", merge_chains = TRUE) 'lp__ = log-posterior'
+# loo_compare(m_unp, m_pp)
+# #Error: Not all models have the same number of data points.
 
 
-mack_diagnostics %>% 
-  group_by(warmup, chain) %>% 
-  summarise(percent_divergent = mean(divergent__ >0)) %>% 
-  ggplot() +
-  geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') + 
-  scale_y_continuous(labels = scales::percent, name = "% Divergent Runs")  + 
-  scale_fill_npg()
-mack_diagnostics %>% 
-  ggplot(aes(iteration, treedepth__, color = chain)) + 
-  geom_line() + 
-  geom_hline(aes(yintercept = max_treedepth), color = 'red') + 
-  scale_color_locuszoom()
 
-
-              # library(brms)
-              # dat <- df_s %>%
-              #   filter(X <= 3)
-              # 
-              # fit_b <- brm(data= dat, 
-              #              family = gaussian, 
-              #              evi~ 1 + gp(time_mean, by=X) + P,
-              #              prior = c(prior(normal(0,19), class = Intercept),
-              #                        prior(normal(0,1), class = b),
-              #                        prior(cauchy(0,1), class = sdgp)),
-              #              chains=1,
-              #              cores=7, 
-              #              warmup = 1000,
-              #              iter=1100,
-              #              seed=13,
-              #              control = list(adapt_delta = 0.999,
-              #                             max_treedepth = 12))
-              # 
-              # #Rhat
-              # rhat_b <- rhat(fit_b)
-              # mcmc_rhat(rhat_b)
-              # 
-              # pred_b <- predict(fit_b, probs = c(0.055,0.945))
-              # pred_b <- as.data.frame(pred_b)
-              # 
-              # loo(fit_b)
-              # waic(fit_b)
-              # 
-              # loo_compare()
-              # 
-              # fit_b2 <- brm(data= dat, 
-              #               family = gaussian, 
-              #               evi~ 1 + gp(time_mean, by=X) + P + presence,
-              #               prior = c(prior(normal(0,10), class = Intercept),
-              #                         prior(normal(0,10), class = b, coef="P"),
-              #                         prior(normal(0,10), class = b, coef="presence"),
-              #                         prior(cauchy(0,10), class = sdgp)),
-              #               chains=1,
-              #               cores=7, 
-              #               warmup = 1000,
-              #               iter=1100,
-              #               seed=13,
-              #               control = list(adapt_delta = 0.999,
-              #                              max_treedepth = 12))
-              # 
-
-#parameter view:
-#model 
-  GP_unp_onlyP = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_onlyP.stan")
-  
-  tic()
-  fit_GP_unp_onlyP = sampling (GP_unp_onlyP, data=standat,
-                                 chains=2,
-                                 cores=7,
-                                 iter=4000,
-                               warmup=1000)
-  # ,
-  #                                warmup=3000,
-  #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
-  #                                               max_treedepth = 15)) #Increase the maximum allowed treedepth
-  toc()
-  
-  ll_P <- extract_log_lik(fit_GP_unp_onlyP, parameter_name = "loglik")
-  m_P <- loo(ll_P)
-  
-  loo_compare(m1,m_P)
-
-#model 
-  GP_unp_P_SD = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_P_SD.stan")
-  
-  tic()
-  fit_GP_unp_P_SD = sampling (GP_unp_P_SD, data=standat,
-                               chains=2,
-                               cores=7,
-                               iter=4000,
-                               warmup=1000)
-  # ,
-  #                                warmup=3000,
-  #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
-  #                                               max_treedepth = 15)) #Increase the maximum allowed treedepth
-  toc()
-  
-  ll_P_SD <- extract_log_lik(fit_GP_unp_P_SD, parameter_name = "loglik")
-  m_P_SD <- loo(ll_P_SD)
-  
-  loo_compare(m1,m_P, m_P_SD)
-
-#model 
-  GP_unp_P_LC = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_P_LC.stan")
-  
-  tic()
-  fit_GP_unp_P_LC = sampling (GP_unp_P_LC, data=standat,
-                               chains=2,
-                               cores=7,
-                               iter=4000,
-                               warmup=1000)
-  # ,
-  #                                warmup=3000,
-  #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
-  #                                               max_treedepth = 15)) #Increase the maximum allowed treedepth
-  toc()
-  
-  ll_P_LC <- extract_log_lik(fit_GP_unp_P_LC, parameter_name = "loglik")
-  m_P_LC <- loo(ll_P_LC)
-  
-  loo_compare(m1,m_P, m_P_SD, m_P_LC)
+# waic(fit_3)
+# waic(fit_2)
+# 
+# #model diagnostics
+# rstan::check_divergences(fit_GP2_ppool)
+# 
+# n_chains <- 6
+# warmups <- 7000
+# max_treedepth <- 15
+# 
+# mack_diagnostics <- rstan::get_sampler_params(fit_GP2_ppool) %>% 
+#   set_names(1:n_chains) %>% 
+#   map_df(as_data_frame,.id = 'chain') %>% 
+#   group_by(chain) %>% 
+#   mutate(iteration = 1:length(chain)) %>% 
+#   mutate(warmup = iteration <= warmups)
+# 
+# 
+# mack_diagnostics %>% 
+#   group_by(warmup, chain) %>% 
+#   summarise(percent_divergent = mean(divergent__ >0)) %>% 
+#   ggplot() +
+#   geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') + 
+#   scale_y_continuous(labels = scales::percent, name = "% Divergent Runs")  + 
+#   scale_fill_npg()
+# mack_diagnostics %>% 
+#   ggplot(aes(iteration, treedepth__, color = chain)) + 
+#   geom_line() + 
+#   geom_hline(aes(yintercept = max_treedepth), color = 'red') + 
+#   scale_color_locuszoom()
+# 
+# 
+#               # library(brms)
+#               # dat <- df_s %>%
+#               #   filter(X <= 3)
+#               # 
+#               # fit_b <- brm(data= dat, 
+#               #              family = gaussian, 
+#               #              evi~ 1 + gp(time_mean, by=X) + P,
+#               #              prior = c(prior(normal(0,19), class = Intercept),
+#               #                        prior(normal(0,1), class = b),
+#               #                        prior(cauchy(0,1), class = sdgp)),
+#               #              chains=1,
+#               #              cores=7, 
+#               #              warmup = 1000,
+#               #              iter=1100,
+#               #              seed=13,
+#               #              control = list(adapt_delta = 0.999,
+#               #                             max_treedepth = 12))
+#               # 
+#               # #Rhat
+#               # rhat_b <- rhat(fit_b)
+#               # mcmc_rhat(rhat_b)
+#               # 
+#               # pred_b <- predict(fit_b, probs = c(0.055,0.945))
+#               # pred_b <- as.data.frame(pred_b)
+#               # 
+#               # loo(fit_b)
+#               # waic(fit_b)
+#               # 
+#               # loo_compare()
+#               # 
+#               # fit_b2 <- brm(data= dat, 
+#               #               family = gaussian, 
+#               #               evi~ 1 + gp(time_mean, by=X) + P + presence,
+#               #               prior = c(prior(normal(0,10), class = Intercept),
+#               #                         prior(normal(0,10), class = b, coef="P"),
+#               #                         prior(normal(0,10), class = b, coef="presence"),
+#               #                         prior(cauchy(0,10), class = sdgp)),
+#               #               chains=1,
+#               #               cores=7, 
+#               #               warmup = 1000,
+#               #               iter=1100,
+#               #               seed=13,
+#               #               control = list(adapt_delta = 0.999,
+#               #                              max_treedepth = 12))
+#               # 
+# 
+# #parameter view:
+# #model 
+#   GP_unp_onlyP = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_onlyP.stan")
+#   
+#   tic()
+#   fit_GP_unp_onlyP = sampling (GP_unp_onlyP, data=standat,
+#                                  chains=2,
+#                                  cores=7,
+#                                  iter=4000,
+#                                warmup=1000)
+#   # ,
+#   #                                warmup=3000,
+#   #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
+#   #                                               max_treedepth = 15)) #Increase the maximum allowed treedepth
+#   toc()
+#   
+#   ll_P <- extract_log_lik(fit_GP_unp_onlyP, parameter_name = "loglik")
+#   m_P <- loo(ll_P)
+#   
+#   loo_compare(m1,m_P)
+# 
+# #model 
+#   GP_unp_P_SD = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_P_SD.stan")
+#   
+#   tic()
+#   fit_GP_unp_P_SD = sampling (GP_unp_P_SD, data=standat,
+#                                chains=2,
+#                                cores=7,
+#                                iter=4000,
+#                                warmup=1000)
+#   # ,
+#   #                                warmup=3000,
+#   #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
+#   #                                               max_treedepth = 15)) #Increase the maximum allowed treedepth
+#   toc()
+#   
+#   ll_P_SD <- extract_log_lik(fit_GP_unp_P_SD, parameter_name = "loglik")
+#   m_P_SD <- loo(ll_P_SD)
+#   
+#   loo_compare(m1,m_P, m_P_SD)
+# 
+# #model 
+#   GP_unp_P_LC = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_unp_P_LC.stan")
+#   
+#   tic()
+#   fit_GP_unp_P_LC = sampling (GP_unp_P_LC, data=standat,
+#                                chains=2,
+#                                cores=7,
+#                                iter=4000,
+#                                warmup=1000)
+#   # ,
+#   #                                warmup=3000,
+#   #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
+#   #                                               max_treedepth = 15)) #Increase the maximum allowed treedepth
+#   toc()
+#   
+#   ll_P_LC <- extract_log_lik(fit_GP_unp_P_LC, parameter_name = "loglik")
+#   m_P_LC <- loo(ll_P_LC)
+#   
+#   loo_compare(m1,m_P, m_P_SD, m_P_LC)
 
   
   #add interaction term
@@ -475,10 +475,10 @@ mack_diagnostics %>%
   
   tic()
   fit_GP_unp_int = sampling (GP_unp_int, data=standat,
-                              chains=2,
-                              cores=7,
+                              chains=4,
+                              cores=4,
                               iter=4000,
-                              warmup=1000)
+                              warmup=1500)
   # ,
   #                                warmup=3000,
   #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
@@ -514,4 +514,31 @@ mack_diagnostics %>%
 GP_int <- as.data.frame(fit_GP_unp_int)
 head(GP_int)
 
+#model diagnostics
+rstan::check_divergences(fit_GP_unp_int)
+
+n_chains <- 4
+warmups <- 1000
+max_treedepth <- 10
+
+mack_diagnostics <- rstan::get_sampler_params(fit_GP_unp_int) %>%
+  set_names(1:n_chains) %>%
+  map_df(as_data_frame,.id = 'chain') %>%
+  group_by(chain) %>%
+  mutate(iteration = 1:length(chain)) %>%
+  mutate(warmup = iteration <= warmups)
+
+
+mack_diagnostics %>%
+  group_by(warmup, chain) %>%
+  summarise(percent_divergent = mean(divergent__ >0)) %>%
+  ggplot() +
+  geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') +
+  scale_y_continuous(labels = scales::percent, name = "% Divergent Runs")  +
+  scale_fill_npg()
+mack_diagnostics %>%
+  ggplot(aes(iteration, treedepth__, color = chain)) +
+  geom_line() +
+  geom_hline(aes(yintercept = max_treedepth), color = 'red') +
+  scale_color_locuszoom()
 
