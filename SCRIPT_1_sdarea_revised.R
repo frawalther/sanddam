@@ -254,4 +254,34 @@ lc_int <- rbind(crop_int, shrub_int)
 #calculate area for each sf feature
 lc_int$area_m2 <- st_area(lc_int) 
 
+
+# # aggregate over ID 
+df_ID <- lc_int %>%
+  group_by(ID) %>%
+   mutate (area_id = sum(area_m2))
+
+df_ID[which.max(df_ID$area_id),] #ID 52
+df_ID[which.min(df_ID$area_id),] #ID 146 
+
+df_ID[52, "area_id"] #413786m2
+df_ID[146, "area_id"] #5535m2
+#The extent of sand dam influenced areas (D) varies between 5,535m2 and 413,786m2. 
+
+s <- lc_int %>%
+  filter(class=="shrubs") %>%
+  mutate(area_tot = sum(area_m2))
+#3357853
+#14.09%
+c <- lc_int %>%
+  filter(class=="cropland") %>%
+  mutate(area_tot = sum(area_m2))
+#20468078
+#85.91%
+ov <-lc_int %>%
+  mutate(area_tot = sum(area_m2)) 
+#23825930
+
+#Croplands cover most of the sand dam influenced area (85.91 %), whereas shrubs only cover 14.09 % of the area of interest. 
+
+head(lc_int)
 st_write(lc_int, dsn = "~/01Master/MasterThesis/Pius/geodata", layer = 'lc_int', driver="ESRI Shapefile", delete_layer = TRUE) #check again

@@ -160,7 +160,7 @@ min(df_cc$year_month)
 df_cc <- df_cc %>%
   transform(LC_proj=as.numeric(factor(LC_proj)))
 
-#rescale evi values 
+#rescale evi values (0-1)
 df_cc$EVI_mean <- df_cc$EVI_mean / 10000
 
 #boil down dataset to the most important columns as input for the model 
