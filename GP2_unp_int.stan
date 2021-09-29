@@ -2,7 +2,7 @@
 data {
   int <lower=1> N; //nrows(df)
   vector<lower = -1, upper = 1>[N] evi;// response 
-  vector <lower = 0> [N] P; //Precipitation
+  vector [N] P; //Precipitation <lower = 0> 
   real time [N];//time order
   
   int <lower = 0, upper = 1> presence [N]; //sand dam presence
@@ -137,6 +137,7 @@ generated quantities {
      evi_pred[i] = normal_rng(mu[i], sigma);
    }
 }
+
 
 
 

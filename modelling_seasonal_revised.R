@@ -101,20 +101,21 @@ standat$n_lc = max(standat$lc_class)
 standat$n_seas = max(standat$seas)
 
 #rescale precipitation data
-standat$P = standat$P * 0.001
+  #standat$P = standat$P * 0.001 
+standat$P <- (standat$P - mean(standat$P))/(2*sd(standat$P))
 
 # GAUSSIAN PROCESS MODEL #
 ### UNPOOLED GP ###
-GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.stan")
-
-          tic()
-          fit_GP2_unpooled = sampling (GP2_unpooled, data=standat,
-                                       chains=4,
-                                       cores=4,
-                                       iter=4000,
-                                       warmup=1500)
-          toc()
-          
+# GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.stan")
+# 
+#           tic()
+#           fit_GP2_unpooled = sampling (GP2_unpooled, data=standat,
+#                                        chains=4,
+#                                        cores=4,
+#                                        iter=4000,
+#                                        warmup=1500)
+#           toc()
+#           
           #took 3.5 hours 
           #
           # control = list(adapt_delta = 0.99,
@@ -124,45 +125,45 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
           # plot(fit_GP2_unpooled)
           
           
-          ll_1 <- extract_log_lik(fit_GP2_unpooled, parameter_name = "loglik", merge_chains = TRUE)
-          m1 <- loo(ll_1)
-          
-          
-          
-          rstan::check_divergences(fit_GP2_unpooled)
-          
-          n_chains <- 4
-          warmups <- 1500
-          max_treedepth <- 10
-          mack_diagnostics <- rstan::get_sampler_params(fit_GP2_unpooled) %>% 
-            set_names(1:n_chains) %>% 
-            map_df(as_data_frame,.id = 'chain') %>% 
-            group_by(chain) %>% 
-            mutate(iteration = 1:length(chain)) %>% 
-            mutate(warmup = iteration <= warmups)
-          
-          mack_diagnostics %>% 
-            group_by(warmup, chain) %>% 
-            summarise(percent_divergent = mean(divergent__ >0)) %>% 
-            ggplot() +
-            geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') + 
-            scale_y_continuous(labels = scales::percent, name = "% Divergent Runs")  + 
-            scale_fill_npg()
-          
-          mack_diagnostics %>% 
-            ggplot(aes(iteration, treedepth__, color = chain)) + 
-            geom_line() + 
-            geom_hline(aes(yintercept = max_treedepth), color = 'red') + 
-            scale_color_locuszoom()
-          
+          # ll_1 <- extract_log_lik(fit_GP2_unpooled, parameter_name = "loglik", merge_chains = TRUE)
+          # m1 <- loo(ll_1)
+          # 
+          # 
+          # 
+          # rstan::check_divergences(fit_GP2_unpooled)
+          # 
+          # n_chains <- 4
+          # warmups <- 1500
+          # max_treedepth <- 10
+          # mack_diagnostics <- rstan::get_sampler_params(fit_GP2_unpooled) %>% 
+          #   set_names(1:n_chains) %>% 
+          #   map_df(as_data_frame,.id = 'chain') %>% 
+          #   group_by(chain) %>% 
+          #   mutate(iteration = 1:length(chain)) %>% 
+          #   mutate(warmup = iteration <= warmups)
+          # 
+          # mack_diagnostics %>% 
+          #   group_by(warmup, chain) %>% 
+          #   summarise(percent_divergent = mean(divergent__ >0)) %>% 
+          #   ggplot() +
+          #   geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') + 
+          #   scale_y_continuous(labels = scales::percent, name = "% Divergent Runs")  + 
+          #   scale_fill_npg()
+          # 
+          # mack_diagnostics %>% 
+          #   ggplot(aes(iteration, treedepth__, color = chain)) + 
+          #   geom_line() + 
+          #   geom_hline(aes(yintercept = max_treedepth), color = 'red') + 
+          #   scale_color_locuszoom()
+          # 
           #Convergence/ MCMC diagnostics 
           #Rhat
-          rhat_GP2unp <- rhat(fit_GP2_unpooled)
-          mcmc_rhat_hist(rhat_GP2unp)
-          #Neff
-          ratios_GP2unp <- neff_ratio(fit_GP2_unpooled)
-          mcmc_neff(ratios_GP2unp)
-          
+          # rhat_GP2unp <- rhat(fit_GP2_unpooled)
+          # mcmc_rhat_hist(rhat_GP2unp)
+          # #Neff
+          # ratios_GP2unp <- neff_ratio(fit_GP2_unpooled)
+          # mcmc_neff(ratios_GP2unp)
+          # 
           #traceplot
           #Which parameters are of interest?
           #, "sigma" = temporal space (VCV matrix of time steps), 
@@ -182,12 +183,12 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
           #Posterior draws: 
           #draw samples from posterior distribution 
           
-          gc()
-          memory.size()
-          #memory.limit()
-          
-          #as.matrix
-          GP2_unp <- as.matrix(fit_GP2_unpooled)
+          # gc()
+          # memory.size()
+          # #memory.limit()
+          # 
+          # #as.matrix
+          # GP2_unp <- as.matrix(fit_GP2_unpooled)
           #Error: cannot allocate vector of size 1.7 Gb
           #solution closed other tabs!
           
@@ -203,26 +204,26 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
               # list_of_draws <- as.array(fit_GP2_unpooled)
               # #Error: cannot allocate vector of size 1.7 Gb
           
-          mcmc_areas(GP2_unp, 
-                     pars='b1',
-                     prob = .90
-          )
-          
-          mcmc_areas(GP2_unp, 
-                     pars='b2',
-                     prob = .90
-          )
-          
-          mcmc_areas(GP2_unp, 
-                     pars=c("b3[1]", "b3[2]"),
-                     prob = .90
-          )
-          
-          mcmc_areas(GP2_unp, 
-                     pars='gamma',
-                     prob = .90
-          )
-          
+          # mcmc_areas(GP2_unp, 
+          #            pars='b1',
+          #            prob = .90
+          # )
+          # 
+          # mcmc_areas(GP2_unp, 
+          #            pars='b2',
+          #            prob = .90
+          # )
+          # 
+          # mcmc_areas(GP2_unp, 
+          #            pars=c("b3[1]", "b3[2]"),
+          #            prob = .90
+          # )
+          # 
+          # mcmc_areas(GP2_unp, 
+          #            pars='gamma',
+          #            prob = .90
+          # )
+          # 
           
           #first interpretation: 
           #b1 positive, evi increases with increasing precipitation 
@@ -472,18 +473,7 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
   
   #model 
   GP_unp_int = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP2_unp_int.stan")
-  
-  tic()
-  fit_GP_unp_int = sampling (GP_unp_int, data=standat,
-                              chains=4,
-                              cores=4,
-                              iter=4000,
-                              warmup=1500)
-  # ,
-  #                                warmup=3000,
-  #                                control = list(adapt_delta = 0.99, #Increase the target acceptance rate
-  #                                               max_treedepth = 15)) #Increase the maximum allowed treedepth
-  toc()
+ 
 
   ll_int <- extract_log_lik(fit_GP_unp_int, parameter_name = "loglik")
   m_int <- loo(ll_int)
@@ -495,30 +485,37 @@ GP2_unpooled = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP_2_unpool.s
   rhat_GP2_int <- rhat(fit_GP_unp_int)
   mcmc_rhat_hist(rhat_GP2_int)
   
+  ratios_GP2int <- neff_ratio(fit_GP_unp_int)
+  mcmc_neff(ratios_GP2int)
+  
   traceplot(fit_GP_unp_int, pars = c("b1", "b2"))
   
   
   GP_int <- as.matrix(fit_GP_unp_int)
+  save(GP_int, file = "post_std.RData")
+  load("~/01Master/MasterThesis/Pius/R/sand dam/post_std.RData")
+  df_post <- as.data.frame(GP_int)
   mcmc_areas(GP_int, 
-             pars=c("b1","b2", "b3[1]", "b3[2]", "sigma", "b4"),
+             pars=c("b1"), #,"b2"), #"b3[1]", "b3[2]", "sigma", "b4"),
              prob = .90)
-
-  mcmc_areas(GP_int, 
+  
+    mcmc_areas(GP_int, 
              pars=c("b1","b2","b4"),
              prob = .90)
   
+    mcmc_areas(GP_int, 
+               pars=c("b3[1]", "b3[2]"), #,"b2"), #"b3[1]", "b3[2]", "sigma", "b4"),
+               prob = .90)
+    
   print(fit_GP_unp_int)
   summary(fit_GP_unp_int)
   
-
-GP_int <- as.data.frame(fit_GP_unp_int)
-head(GP_int)
 
 #model diagnostics
 rstan::check_divergences(fit_GP_unp_int)
 
 n_chains <- 4
-warmups <- 1000
+warmups <- 1500
 max_treedepth <- 10
 
 mack_diagnostics <- rstan::get_sampler_params(fit_GP_unp_int) %>%
