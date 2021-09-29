@@ -1,15 +1,54 @@
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(gridExtra)
+library(bayesplot)
+
+#model diagnostics
+rhat_GP2_int <- rhat(fit_GP_unp_int)
+mcmc_rhat_hist(rhat_GP2_int)
+
+ratios_GP2int <- neff_ratio(fit_GP_unp_int)
+mcmc_neff(ratios_GP2int)
+
 fit_summary <- summary(fit_GP_unp_int)
 print(names(fit_summary))
 print(fit_summary$summary)
 
+
+# Draw posterior samples 
 posterior <- as.matrix(fit_GP_unp_int)
 # save(posterior, file = "post_int.RData")
 load("~/01Master/MasterThesis/Pius/R/sand dam/post_int.RData")
+df_post <- as.data.frame(posterior)
 
-head(posterior)
+#standardizing by substracting the mean and dividing by 2 standard deviations
+#(Gelman 2021, p. 186)
+df_post$b1 <- (df_post$b1 - mean(df_post$b1))/(2*sd(df_post$b1))
+df_post$b2 <- (df_post$b2 - mean(df_post$b2))/(2*sd(df_post$b2))
+df_post$`b3[1]`<-(df_post$`b3[1]` - mean(df_post$`b3[1]`))/(2*sd(df_post$`b3[1]`))
+df_post$`b3[2]`<-(df_post$`b3[2]` - mean(df_post$`b3[2]`))/(2*sd(df_post$`b3[2]`))
 
-nrow(posterior)
-ncol(posterior)
+#When do I do this standardization?n before or after modelling?
+#also for interaction term??? 
+      df_post$b4 <-(df_post$b4 - mean(df_post$b4))/(2*sd(df_post$b4))
+ggplot(df_post) +geom_histogram(aes(x=b2))
+      median(df_post$b2)
+#vizualise slopes:
+      #b1 Precipitation 
+      p_sd_cent <- mcmc_areas(df_post, pars="b1",
+                            prob = .89)
+      mcmc_areas(df_post, regex_pars = "b3", prob=0.89)
+      median(df_post$`b3[1]`)
+      median(df_post$`b3[2]`)
+      median(df_post$b1)
+      median(df_post$b2)
+
+      df_post$b1m <- df_post$b1 - mean(df_post$b1)
+      median(df_post$b1m)
+      mcmc_areas(df_post, pars="b1m",
+                              prob = .89)
+      
 #plot: compare empirical distribution of the data (evi) 
 #     to the posterior distribution (evi) EVI 
 
@@ -45,60 +84,47 @@ yrep_t$sd_id <- df_s$ID
 yrep_t$lc_sd <- df_s$X #336
 yrep_t$area <- df_s$area_m2
 yrep_t$lc_class <- df_s$class
+yrep_t$P <- df_s$P # unit[mm]
 
-yrep_t_long <- gather(yrep_t, key=iter, value=evi_est, -time, -gp_id, -presence, -lc_class, -rn, -season, -sd_id, -lc_sd, -area)
+yrep_t_long <- gather(yrep_t, key=iter, value=evi_est, -time, -gp_id, -presence, -lc_class, -rn, -season, -sd_id, -lc_sd, -area, -P)
 head(yrep_t_long)
 #save(yrep_t_long, file = "yrep_t_long.RData")
 load("~/01Master/MasterThesis/Pius/R/sand dam/yrep_t_long.RData")
 
-yrep_mean_w <- yrep_t_long %>%
-   group_by(lc_sd) %>%
-   summarise(weighted.mean(evi_est, area))
-
-yrep_mean <- yrep_t_long %>%
-   group_by(lc_sd) %>%
-   summarise(mean(evi_est))
-#comment: 
-#Do I need to weigh it or does anyways every lc_sd have the same area? 
-
-
-#VISUALIZE TIME SERIES 
-      
-      #one GP example (GP_id== )
-      plot1 <- yrep_t_long %>%
-         filter (gp_id==1) %>%
-         group_by(time) %>%
-         summarize("mean_evi" = mean(evi_est),
+### VISUALIZE TIME SERIES ###
+      #predicted EVI
+                  #one GP example (GP_id== )
+      plot <- yrep_t_long %>% #plot1
+   #     filter (gp_id==1) %>%
+         group_by(!!!syms(c("time", "sd_id"))) %>%
+   #     group_by(time) %>%
+         summarize("mean_evi" = weighted.mean(evi_est, area),
                     "evi_Q25" = quantile(evi_est, probs = 0.25),
                     "evi_Q75" = quantile(evi_est, probs = 0.75),
                    "evi_Q05" = quantile(evi_est, probs = 0.05),
                    "evi_Q95" = quantile(evi_est, probs = 0.95)) %>%
          ggplot(aes(x=time, y=mean_evi)) + 
-         geom_ribbon(aes(ymin = evi_Q05, ymax=evi_Q95, fill="lightblue"), alpha =0.3) +
-         geom_ribbon(aes(ymin = evi_Q25, ymax=evi_Q75, fill="yellow"), alpha = 0.4) +
-         geom_line(aes(x=time, y=mean_evi, color="blue", linetype="dashed")) +
+ #        geom_ribbon(aes(ymin = evi_Q05, ymax=evi_Q95, fill="lightblue"), alpha =0.3) +
+ #        geom_ribbon(aes(ymin = evi_Q25, ymax=evi_Q75, fill="yellow"), alpha = 0.4) +
+         geom_line(aes(x=time, y=mean_evi, group=sd_id, color=sd_id)) +
          scale_x_continuous("Time", 
                             breaks = seq(0, 92, by=12),
                             labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021")) 
-      #wrong connection? I think this figure is wrong: GP are boiling down Credible intervals to zero where observational data is !?
+
+      #Precipitation (observed) 
+      prec <- df_s %>%
+         group_by(!!!syms(c("time_mean", "ID"))) %>%
+         summarize("mean_P" = weighted.mean(P, area_m2),
+                   "time" = weighted.mean(time_mean, area_m2))  %>% #, "
+         ggplot(aes(x=time, y = mean_P)) + 
+         geom_point() +  #stat = "identity", color="blue", fill="blue", width = 0.5
+         geom_line(aes(x=time, y=mean_P, group=ID, color=ID)) +
+         labs(y = "Monthly Precipitation [mm]") + 
+         scale_x_continuous("Time", 
+                            breaks = seq(0, 92, by=12),
+                            labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021"))
+      grid.arrange(plot, prec)
       
-      #all GPs -> can i draw this inference? 
-      plot <- yrep_t_long %>%
-         #filter (gp_id==1) %>%
-         group_by(time) %>%
-         summarize("mean_evi" = weighted.mean(evi_est, area),
-                   "evi_Q25" = quantile(evi_est, probs = 0.25),
-                   "evi_Q75" = quantile(evi_est, probs = 0.75),
-                   "evi_Q05" = quantile(evi_est, probs = 0.05),
-                   "evi_Q95" = quantile(evi_est, probs = 0.95)) %>%
-         ggplot(aes(x=time, y=mean_evi)) + 
-      #   geom_ribbon(aes(ymin = evi_Q05, ymax=evi_Q95, fill="lightblue"), alpha =0.3) +
-      #   geom_ribbon(aes(ymin = evi_Q25, ymax=evi_Q75, fill="yellow"), alpha = 0.4) +
-         geom_point(aes(x=time, y=mean_evi, color="blue", linetype="dashed")) +
-         scale_x_continuous("Time", 
-                            breaks = seq(0, 92, by=12),
-                            labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021")) 
-      #WRONG???
       # plot <- yrep_t_long %>%
       #    group_by(c("season", "lc_id") %>%
       #    # summarize("mean_evi" = mean(evi_est),
@@ -137,7 +163,7 @@ yrep_mean <- yrep_t_long %>%
 
 
 
-      group_cols <- c("presence", "lc_sd", "time")  
+      group_cols <- c("presence", "lc_sd", "time")  #seas_y (df_s)?
       yrep_t_long %>% 
          group_by(!!!syms(group_cols)) %>% 
          summarize("mean_evi" = weighted.mean(evi_est, area)) %>%
@@ -149,22 +175,23 @@ yrep_mean <- yrep_t_long %>%
 # MODEL SLOPES
 
       #Precipitation 
-            mcmc_areas(posterior, pars="b1",
-                       prob = .95)   
+            p_slope <- mcmc_areas(posterior, pars="b1",
+                       prob = .89)   
       #Sand dam presence
-            mcmc_areas(posterior, pars="b2",
-                       prob=0.95)
+            sd_slope <- mcmc_areas(posterior, pars="b2",
+                       prob=0.89)
       #comparison Precipitation and Sand dam presence (take care: presence = discrete 0,1)
-            pairs(fit_GP_unp_int, pars = c("b1", "b2"), log = TRUE, las = 1, prob = .95)
-         #redo model fitting (forgot to save)
+            pairs(fit_GP_unp_int, pars = c("b1", "b2"), log = F, las = 1, prob = .95)
+
             mcmc_areas(posterior, pars=c("b1", "b2", "b4"),
-                              prob = .95)
+                              prob = .89)
       
       #LC class comparison
-         mcmc_areas(posterior, pars = c("b3[1]", "b3[2]"), prob=0.8)
+         mcmc_areas(posterior, pars = c("b3[1]", "b3[2]"), prob=0.89)
          #or:
-         mcmc_areas(posterior, regex_pars = "b3", prob=0.8)
-      
+         mcmc_areas(posterior, regex_pars = "b3", prob=0.89)
+
+         
       # TIME 
          
          #???
@@ -192,24 +219,60 @@ mean_lc_obs <- df_s %>%
          labs(x="Seasons", y="Observed EVI", title="Observed data", colour = " ") +
          scale_color_manual(labels = c("No sand dam", "Sand dam"),
                             values = c("darkgrey", "brown")) +
-      facet_grid(cols = vars(class)) +
-      geom_hline(yintercept=mean_lc_pred$`stats::weighted.mean(yrep_t_long$evi_est, yrep_t_long$area)`, linetype=2, size=1/4)
+      facet_grid(cols = vars(class)) #+
+   #   geom_hline(yintercept=mean_lc_pred$`stats::weighted.mean(yrep_t_long$evi_est, yrep_t_long$area)`, linetype=2, size=1/4)
    
    #predicted
    pred_seas <- yrep_t_long %>%
       group_by(!!!syms(c("lc_sd", "season", "lc_class", "presence"))) %>%
-      summarise("evi_pred_mean" =weighted.mean(evi_est, area)) %>%
+      summarise("evi_pred_mean" =weighted.mean(evi_est, area),
+                "evi_Q055" = quantile(evi_est, probs = 0.055),
+                "evi_Q955" = quantile(evi_est, probs = 0.955)) %>%
          ggplot(aes(y=evi_pred_mean, x=season, colour=factor(presence))) +
          geom_boxplot() +
          labs(x="Seasons", y="Predicted EVI", title="Predicted data", colour = " ") +
          scale_color_manual(labels = c("No sand dam", "Sand dam"),
                             values = c("lightblue", "blue")) +
       facet_grid(cols = vars(lc_class)) +
-      geom_hline(yintercept=mean_lc_pred$`stats::weighted.mean(yrep_t_long$evi_est, yrep_t_long$area)`, linetype=2, size=1/4)
-
+  #    geom_hline(yintercept=mean_lc_pred$`stats::weighted.mean(yrep_t_long$evi_est, yrep_t_long$area)`, linetype=2, size=1/4) +
+  #    geom_ribbon(aes(ymin = evi_Q055, ymax=evi_Q955, fill="lightblue"), alpha =0.3) 
    grid.arrange(obs_seas, pred_seas)
 
+   #lower and upper hinges correspond to the first and third quartiles (the 25th and 75th percentiles)
+   ?geom_boxplot
+   
+   
 #######
+   p_lcover <- yrep_t_long %>%
+      group_by(lc_class) %>%
+      summarise("evi_pred_mean" =weighted.mean(evi_est, area),
+                "evi_Q055" = quantile(evi_est, probs = 0.055),
+                "evi_Q955" = quantile(evi_est, probs = 0.955),
+                ) %>%
+      ggplot() +
+      geom_point(aes(x=lc_class, y=evi_pred_mean)) +
+      labs(x="lc_class", y="Predicted EVI", title="Land cover") +
+      geom_errorbar(aes(x=lc_class, ymin = evi_Q055, ymax=evi_Q955), alpha =0.3) 
+
+   p_sd <- yrep_t_long %>%
+      group_by(presence) %>%
+      summarise("evi_pred_mean" =weighted.mean(evi_est, area),
+                "evi_Q055" = quantile(evi_est, probs = 0.055),
+                "evi_Q955" = quantile(evi_est, probs = 0.955),
+                "evi_Q25" = quantile(evi_est, probs = 0.25),
+                "evi_Q75" = quantile(evi_est, probs = 0.75)) %>%
+      ggplot() +
+      labs(x="Sand dam presence", y="Predicted EVI", title="Sand dam presence") +
+      geom_errorbar(aes(x=factor(presence), ymin = evi_Q055, ymax=evi_Q955)) +
+      geom_errorbar(aes(x=factor(presence), ymin = evi_Q25, ymax=evi_Q75), color="darkgrey") +
+      geom_point(aes(x=factor(presence), y=evi_pred_mean), size=4, shape=21, fill="white")
+
+   
+   yrep_t_long %>%
+      group_by(presence) %>%
+      summarise("var" = var(evi_est),
+                "sd" = sd(evi_est))
+
    
    #PLOT: 
 
@@ -227,15 +290,24 @@ p_pred1 <- yrep_t_long %>%
 # Histogram Predicted mean EVI
 p_pred2 <- yrep_t_long %>%
    group_by(!!!syms(c("lc_sd", "presence"))) %>%
-      summarize("GP_mean_evi" = stats::weighted.mean(evi_est, area)) %>%
+      summarize("GP_mean_evi" = stats::weighted.mean(evi_est, area),
+                "evi_Q055" = quantile(evi_est, probs = 0.055),
+                "evi_Q955" = quantile(evi_est, probs = 0.955)) %>% #89%
       ggplot(aes(x=GP_mean_evi, fill=factor(presence))) + #fill=factor(presence), 
    geom_histogram(alpha = 0.3, position = "identity") + 
    scale_fill_discrete(labels = c("No sand dam", "Sand dam")) +
       labs(x="Predicted mean EVI", y="counts", title="Distribution of predicted mean EVI (n=336 GPs)", fill = " ") +
       geom_vline(xintercept=0.21, linetype = 2, size = 1/4, colour = "#F8766D") +
    geom_vline(xintercept=0.23, linetype = 2, size = 1/4, colour = "#00BFC4") +
-      scale_y_continuous(
-         labels = scales::number_format(accuracy = 0.01))
+
+         labels = scales::number_format(accuracy = 0.01)) +
+
+
+#      #    # summarize("mean_evi" = mean(evi_est),
+#    #           "evi_Q25" = quantile(evi_est, probs = 0.25),
+#    #           "evi_Q75" = quantile(evi_est, probs = 0.75),
+#    #           "evi_Q05" = quantile(evi_est, probs = 0.05),
+#    #           "evi_Q95" = quantile(evi_est, probs = 0.95)) %>%
 
 #calculate weighted means 
 yrep_t_long %>%
@@ -354,7 +426,7 @@ mcmc_areas(GP_int, regex_pars = "[1]")
  p1 <- df_s %>%
    filter (X == 1) %>%
    ggplot(aes(x=time_mean, y =P))+geom_bar(stat = "identity", color="blue", fill="blue", width = 0.5) +
-   labs(y = "Precipitation [unit]") + 
+   labs(y = "Precipitation [mm]") + 
    scale_x_continuous("Time", 
                       breaks = seq(0, 92, by=12),
                       labels =c("2014","2015","2016","2017", "2018", "2019", "2020", "2021"))
@@ -371,8 +443,57 @@ df_s %>%
 df_s %>%
   ggplot(aes(y=P, x=season)) + geom_point()
 
+####
+#evi vs prec 
+p_meanmonth <- yrep_t_long %>%
+   group_by(!!!syms(c("lc_sd", "presence"))) %>%
+   summarize("evi_mean" = mean(evi_est),
+             "p_mean" = mean(P)) %>%
+   ggplot(aes(x=p_mean, y=evi_mean, colour=factor(presence))) +
+   geom_point() +
+   geom_smooth(method=lm, se=FALSE) +
+   labs(x="average monthly precipitation [mm]", y="predicted mean EVI", title="EVI vs. Precipitation (per SDIA)", colour = "Sand dam presence")
+
+p_meanmonth2 <- yrep_t_long %>%
+   group_by(!!!syms(c("sd_id", "presence"))) %>%
+   summarize("evi_mean" = weighted.mean(evi_est, area),
+             "p_mean" = weighted.mean(P, area)) %>%
+   ggplot(aes(x=p_mean, y=evi_mean, colour=factor(presence))) +
+   geom_point() +
+   geom_smooth(method=lm, se=FALSE) +
+   labs(x="average monthly precipitation [mm]", y="predicted mean EVI", title="EVI vs. Precipitation (per SD)", colour = "Sand dam presence")
+
+p_seasons <- yrep_t_long %>%
+   group_by(!!!syms(c("sd_id", "presence", "season"))) %>%
+   summarize("evi_mean" = weighted.mean(evi_est, area),
+             "p_mean" = mean(P)) %>%
+   ggplot(aes(x=p_mean, y=evi_mean, colour=factor(presence))) +
+   geom_point() +
+   geom_smooth(method=lm, se=FALSE) +
+   labs(x="average monthly precipitation [mm]", y="predicted mean EVI", 
+        title="EVI vs. Precipitation (per SD)", colour = " ") +
+   facet_grid(cols = vars(season), scales="free") + #+ scales="free" 
+   #geom_text(x = 0.2, y = 0.32, label = eq(cv_p), parse = TRUE)
+   scale_color_manual(labels = c("No sand dam", "Sand dam"),
+                      values = c("#F8766D", "#00BFC4"))
+
+      # cv_p <- yrep_t_long %>%
+      #    group_by(!!!syms(c("sd_id", "presence", "season"))) %>%
+      #    summarize("evi_mean" = weighted.mean(evi_est, area),
+      #              "p_mean" = weighted.mean(P, area))
+      # 
+      # eq <- function(cv_p){
+      #    m <- lm(evi_mean ~ p_mean, cv_p); #create input data (here=cv)
+      #    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+      #                     list(a = format(unname(coef(m)[1]), digits = 2),
+      #                          b = format(unname(coef(m)[2]), digits = 2),
+      #                          r2 = format(summary(m)$r.squared, digits = 3)))
+      #    as.character(as.expression(eq));
+      # }
 
 
+
+#####
 #add over all or mcmc_area
 
 df_s %>%
