@@ -474,6 +474,12 @@ standat$P <- (standat$P - mean(standat$P))/(2*sd(standat$P))
   #model 
   GP_unp_int = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP2_unp_int.stan")
  
+  fit_GP_unp_int = sampling (GP_unp_int, data=standat, 
+                             chains=4, 
+                             cores=4,
+                             iter=4000,
+                             warmup=1500)
+
 
   ll_int <- extract_log_lik(fit_GP_unp_int, parameter_name = "loglik")
   m_int <- loo(ll_int)
