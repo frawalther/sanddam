@@ -15,9 +15,9 @@ library(tictoc)
 library(ggplot2)
 library(gridExtra)
 
-    # df_par <- df_com  
+    # df_par <- df_com
     # 
-    # # aggregate over the 4 periods 
+    # # aggregate over the 4 periods
     # df_y_m <- df_par %>%
     #   mutate (year = year(year_month)) %>%
     #   mutate (month= month(year_month, label=T))
@@ -31,11 +31,11 @@ library(gridExtra)
     # 
     # df_y_m$seas_y <- paste(df_y_m$season, df_y_m$year, df_y_m$X, sep="_")
     # 
-    # df_season <- df_y_m %>% 
-    #   group_by(seas_y) %>% 
+    # df_season <- df_y_m %>%
+    #   group_by(seas_y) %>%
     #   summarize(EVI_mean = mean(EVI_mean),
     #             Precip_mean = mean(Precip_mean),
-    #             time_mean = mean(timeorder)) %>% #check: okay?
+    #             time_mean = mean(timeorder)) %>% #check: okay?? 
     #   as.data.frame()
     # 
     # df_s <- merge(df_season, df_y_m, by="seas_y")
@@ -43,7 +43,7 @@ library(gridExtra)
     # df_s <- df_s %>%
     #   mutate(evi = EVI_mean.x,
     #          P = Precip_mean.x) %>%
-    #   select(-EVI_mean.y, -EVI_mean.x, -Precip_mean.y, -Precip_mean.x, -date.x, -date.y, -year_month, -month, -timeorder, -X.1)
+    #   select(-EVI_mean.y, -EVI_mean.x, -Precip_mean.y, -Precip_mean.x, -date.x, -date.y, -month, -timeorder, -X.1, -year_month) #, -year_month
     # df_s <- distinct(df_s)
     # 
     # head(df_s)
@@ -51,24 +51,18 @@ library(gridExtra)
     # 
     # 
     # save(df_s, file = "df_seas_all.RData")
-
+####################################################################
 load("~/01Master/MasterThesis/Pius/R/sand dam/df_seas_all.RData")
-
-df_s$gp_id <- paste(df_s$X, df_s$class, sep="_")
 
 #in presence column are NAs 
 nrow(df_s[is.na(df_s$presence), ])  
-
+unique(df_s$seas_y)
 #removed:
+
 df_s <- df_s %>%
   drop_na("presence")
 unique(df_s$presence)
-
-# # #subset 
-# df_kitui <- df_s %>%
-#   filter(study == "Kitui West (Pius)")
-# unique(df_tiva$ID)
-
+nrow(df_s)
 # add/wrangle season column 
 df_s <- df_s %>%
   transform(seas=as.numeric(factor(season)))
@@ -78,12 +72,30 @@ unique(df_s$seas)
 #2 = MAM
 #4 = OND
 
+df_s$gp_id <- paste(df_s$X, df_s$class, sep="_") #n=336
+
 #save(df_s, file = "df_s.RData")
+
+#need to remove duplicates
+duplicated(df_s)
+df_s[duplicated(df_s)]
 head(df_s)
 
 
+size <- df_s %>%
+    count(X)
+  df_s %>%
+    filter(X==6)
+  min(size$n)
+  df <- df_s %>%
+    distinct()
+  
+  df %>%
+    filter(X==6)
+  
+nrow(df_s)
 # # # CREATE LIST OF DATA FOR STAN MODEL # # #
-standat = with(df_s, list( #[df_s$ID <= 30,] #[df_s$ID <= 10,] #[df_s$ID <= 5,]
+standat = with(df_s, list( #[df_s$ID <= 5,]
   evi = evi,
   P = P,
   time = time_mean,
@@ -95,13 +107,16 @@ standat = with(df_s, list( #[df_s$ID <= 30,] #[df_s$ID <= 10,] #[df_s$ID <= 5,]
 
 standat$gp_sampsize = table(standat$gp_id)
 standat$max_gp_sampsize = max(standat$gp_sampsize)
-standat$ngp = max(standat$gp_id)
+standat$ngp = max(standat$gp_id) #336
 standat$N = length(standat$evi)
 standat$n_lc = max(standat$lc_class)
 standat$n_seas = max(standat$seas)
 
 #rescale precipitation data
   #standat$P = standat$P * 0.001 
+
+#standardizing by substracting the mean and dividing by 2 standard deviations
+#(Gelman 2021, p. 186)
 standat$P <- (standat$P - mean(standat$P))/(2*sd(standat$P))
 
 # GAUSSIAN PROCESS MODEL #
@@ -473,29 +488,36 @@ standat$P <- (standat$P - mean(standat$P))/(2*sd(standat$P))
   
   #model 
   GP_unp_int = stan_model("~/01Master/MasterThesis/Pius/R/sand dam/GP2_unp_int.stan")
- 
+
+#job::job({
+tic()
   fit_GP_unp_int = sampling (GP_unp_int, data=standat, 
                              chains=4, 
                              cores=4,
-                             iter=4000,
-                             warmup=1500)
+                             iter=6000,
+                             warmup=4000,
+                             control= list(adapt_delta=0.92)) # #default=0.8
+                                           #max_treedepth=12)) #default=10
+                             #, 
+                              #             max_treedepth=12))#,
+                             #control = list(#, adapt_delta = 0.99)) 
+                              #              max_treedepth = 15)) #Increase the maximum allowed treedepth)
+toc()
+#}) 
+
+check_hmc_diagnostics(fit_GP_unp_int)
+
+print(fit_GP_unp_int, pars = fit_GP_unp_int@sim$pars_oi, probs = c(0.045, 0.955), digits = 2)
 
 
-  ll_int <- extract_log_lik(fit_GP_unp_int, parameter_name = "loglik")
-  m_int <- loo(ll_int)
+  # ll_int <- extract_log_lik(fit_GP_unp_int, parameter_name = "loglik")
+  # m_int <- loo(ll_int)
   
-  loo_compare(m1, m_int)
-  #or:
-  w <- loo_compare(m1, m_int, criterion = "waic")
-  
-  rhat_GP2_int <- rhat(fit_GP_unp_int)
-  mcmc_rhat_hist(rhat_GP2_int)
-  
-  ratios_GP2int <- neff_ratio(fit_GP_unp_int)
-  mcmc_neff(ratios_GP2int)
-  
-  traceplot(fit_GP_unp_int, pars = c("b1", "b2"))
-  
+  # loo_compare(m1, m_int)
+  # #or:
+  # w <- loo_compare(m1, m_int, criterion = "waic")
+
+ 
   
   GP_int <- as.matrix(fit_GP_unp_int)
   save(GP_int, file = "post_std.RData")

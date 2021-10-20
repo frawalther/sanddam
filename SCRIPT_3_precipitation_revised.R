@@ -107,7 +107,6 @@ class(df_c)
 save(df_c, file = "df_c_all.RData") #write.csv() takes way more time and space 
 load("df_c_all.RData")
 
-
 #DATE
 class(df_c$Yer_blt) 
 
@@ -120,30 +119,47 @@ df_c$Mnth_Cn <- as.integer(factor(df_c$Mnth_Cn, levels = month.name))
 df_c$date_b <- lubridate::ymd(df_c$Yer_blt, truncated = 2L)
 
 df_c$date_built <- if_else(df_c$Mnth_Cn != "NA",true=as.Date(with(df_c,paste(Yer_blt,Mnth_Cn,"01",sep="-")),"%Y-%m-%d"), 
-                           false=df_c$date_b)
+                           false= df_c$date_b) #neglects false statement 
 
 df_c <- df_c %>%
   mutate(d_built = if_else(is.na(date_built), date_b, date_built))
 
-unique(df_c$date_built) #50
-unique(df_c$date_b) #42
-unique(df_c$d_built) #82 
+#use column d_built 
 
-#some results got lost? check again 
+unique(df_c$date_built) #52 (incl NA)
+unique(df_c$date_b) #43 (incl NA)
+unique(df_c$d_built) #83 (incl NA)
+
+class(df_c$d_built)
+#question: where did the ~11 values go? ->are built in january (NO)? 
+
+colSums(is.na(df_c))
+nrow(df_c)
 
 #Presence column
 class(df_c$year_month)
 df_c$year_month <- as.Date(df_c$year_month, "%Y-%m-%d")
 
-df_cc<- df_c %>%
-  mutate(presence = if_else(year_month %m+% years(1) >= d_built , 1, 0)) 
+#add a year to sand dam construction date (d_built) 
 #1 year to fill up sand dam (partially) - can take up to 1-3 years (literature)
-# stay with this decision of 1 year? 
 
+df_c$d_filled <- df_c$d_built %m+% years(1)
+
+df_cc<- df_c %>%
+  mutate(presence = if_else(year_month >= d_filled, 1, 0)) 
+
+df_cc %>%
+  filter(between(year_month, as.Date("2016-01-01"), as.Date("2016-12-31")) & X==6) 
+
+  
+  df_cc %>%
+    select(X, year_month, presence, d_built, d_filled) %>%
+    filter(presence == 1 & X==6) %>%
+    distinct()
+  
 #save 
 save(df_cc, file = "df_cc_all.RData") #write.csv() takes way more time and space 
 load("df_cc_all.RData")
-head(df_cc)
 
 # TIME: create column of discrete time steps (earliest date 01/01/2014 = 1)
 df_cc <- df_cc %>%
@@ -154,6 +170,7 @@ unique(df_cc$timeorder)
 unique(df_cc$year_month)
 
 min(df_cc$year_month)
+max(df_cc$year_month)
 
 # reshape LC_proj
 # [4,2] -> [2,1] 2=cropland [4], 1 =shrubs [2]

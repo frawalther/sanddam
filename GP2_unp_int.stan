@@ -117,8 +117,8 @@ model {
   rho ~ inv_gamma(5,5);
   alpha ~ std_normal();
   eta ~ std_normal();
-  sigma ~ cauchy(0, 15); //adjust prior
-//  a ~ normal(0,10);
+  sigma ~ cauchy(0, 15); //adjust prior #15
+
   b1 ~ normal(0,1); //precipitation
   b2 ~ normal(0,1); //presence
   b3 ~ normal(0,1); //land cover 
